@@ -36,8 +36,9 @@ jobs:
         run: xcodebuild -resolvePackageDependencies -project GlassesTutor.xcodeproj -scheme GlassesTutor
 
       # Developer Mode build: MetaAppID / ClientToken empty, SDK skips attestation.
+      # Explicit empty settings: xcodebuild would otherwise pick the job env vars up as build settings.
       - name: Build devmode
-        run: scripts/build-ipa.sh devmode
+        run: scripts/build-ipa.sh devmode "META_APP_ID=" "CLIENT_TOKEN=" "APPLE_TEAM_ID="
 
       # Registered build: IDs from the Wearables Developer Center project (repo secrets).
       - name: Build registered
