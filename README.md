@@ -26,7 +26,10 @@ SDK: `meta-wearables-dat-ios` 1.0.1, iOS 17.2+, Xcode 26.4+.
 
 ## Сборка
 
-Публичный репозиторий github.com/andriidrok1/glasses-tutor. Каждый push в `main` или кнопка Run workflow собирает неподписанный IPA и кладёт его в два места: артефакт `GlassesTutor-ipa` у запуска и релиз `latest` (https://github.com/andriidrok1/glasses-tutor/releases). Первая сборка 2026-11-01 прошла с первого раза.
+Публичный репозиторий github.com/andriidrok1/glasses-tutor. Каждый push в `main` или кнопка Run workflow собирает два неподписанных IPA и кладёт их в артефакт `GlassesTutor-ipa` и в релиз `latest` (https://github.com/andriidrok1/glasses-tutor/releases):
+
+- `GlassesTutor-devmode.ipa`: MetaAppID пустой, SDK пропускает attestation. Работает с Developer Mode на очках. Ставить первым.
+- `GlassesTutor-registered.ipa`: MetaAppID и ClientToken из проекта в Wearables Developer Center, берутся из секретов репозитория `META_APP_ID`, `CLIENT_TOKEN`, `APPLE_TEAM_ID`. Нужен, если Inputs (кнопка) отказывает в devmode. Для attestation нужен ещё Apple Team ID, у бесплатного Apple ID он есть (personal team), его покажет `plumesign account certificates` после входа. Пока секрет `APPLE_TEAM_ID` пуст.
 
 ## Установка на iPhone с Linux
 
@@ -37,7 +40,8 @@ SDK: `meta-wearables-dat-ios` 1.0.1, iOS 17.2+, Xcode 26.4+.
 ```
 cd ~/Applications/impactor
 ./plumesign-linux-x86_64 account login -u ВАШ_APPLE_ID     # пароль и код 2FA спросит сам, один раз
-~/WebstormProjects/glasses-tutor/scripts/install.sh          # качает latest IPA, подписывает, ставит
+~/WebstormProjects/glasses-tutor/scripts/install.sh            # devmode: качает latest IPA, подписывает, ставит
+~/WebstormProjects/glasses-tutor/scripts/install.sh registered # вариант с ID из Developer Center
 ```
 
 Телефон при этом подключён по кабелю, разблокирован, на вопрос «Доверять компьютеру» ответить «Доверять». Скрипт спросит UDID, если устройств несколько.
@@ -65,7 +69,7 @@ GUI-путь: запустить `Impactor-linux-x86_64.appimage`, войти Ap
 
 ## Что может не завестись и что делать
 
-- `inputs: ... permissionDenied`. Inputs помечен в SDK как experimental и может требовать включения capability в Wearables Developer Center. Тогда: создать там проект, включить Inputs, вписать `MetaAppID` и `ClientToken` в `Config/Info.plist` вместо нулей.
+- `inputs: ... permissionDenied`. Inputs помечен в SDK как experimental и может требовать включения capability в Wearables Developer Center. Тогда: в проекте Developer Center включить Inputs, положить `APPLE_TEAM_ID` в секреты, поставить `GlassesTutor-registered.ipa`.
 - Снимок не приходит, в логе `photo error`. Чаще всего стрим ещё держит сенсор. Проверить, что перед `capture` в логе было `stream put down`.
 - Очки параллельно делают свой снимок в галерею. Это надо проверить на живом железе, в доке не сказано.
 - `camera would not attach`. Не выдано разрешение камеры в Meta AI, пункт 2.

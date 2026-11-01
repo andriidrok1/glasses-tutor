@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -31,36 +31,28 @@ jobs:
       - name: Resolve packages
         run: xcodebuild -resolvePackageDependencies -project GlassesTutor.xcodeproj -scheme GlassesTutor
 
-      - name: Build (unsigned)
-        run: |
-          xcodebuild build \
-            -project GlassesTutor.xcodeproj \
-            -scheme GlassesTutor \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            | tee build.log | grep -E "error:|warning: unre|BUILD" || true
-          grep -q "BUILD SUCCEEDED" build.log
+      # Developer Mode build: MetaAppID / ClientToken empty, SDK skips attestation.
+      - name: Build devmode
+        run: scripts/build-ipa.sh devmode
 
-      - name: Package IPA
+      # Registered build: IDs from the Wearables Developer Center project (repo secrets).
+      - name: Build registered
+        if: ${{ env.META_APP_ID != '' }}
+        env:
+          META_APP_ID: ${{ secrets.META_APP_ID }}
+          CLIENT_TOKEN: ${{ secrets.CLIENT_TOKEN }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
-          test -n "$APP"
-          rm -rf Payload && mkdir Payload
-          cp -R "$APP" Payload/
-          zip -qr GlassesTutor.ipa Payload
-          ls -la GlassesTutor.ipa
+          scripts/build-ipa.sh registered \
+            "META_APP_ID=$META_APP_ID" \
+            "CLIENT_TOKEN=$CLIENT_TOKEN" \
+            "APPLE_TEAM_ID=$APPLE_TEAM_ID"
 
-      - name: Upload IPA
+      - name: Upload IPAs
         uses: actions/upload-artifact@v4
         with:
           name: GlassesTutor-ipa
-          path: GlassesTutor.ipa
+          path: GlassesTutor-*.ipa
 
       - name: Publish rolling "latest" release
         if: github.ref == 'refs/heads/main'
@@ -69,11 +61,11 @@ jobs:
         run: |
           gh release view latest >/dev/null 2>&1 || \
             gh release create latest --title "latest unsigned IPA" --notes "Rolling build from main. Sign with a free Apple ID via Impactor." --prerelease
-          gh release upload latest GlassesTutor.ipa --clobber
+          gh release upload latest GlassesTutor-*.ipa --clobber
 
-      - name: Upload build log on failure
+      - name: Upload build logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
-          path: build.log
+          name: build-logs
+          path: build-*.log

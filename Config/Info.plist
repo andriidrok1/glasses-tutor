@@ -36,17 +36,19 @@
 		</dict>
 	</array>
 
-	<!-- Meta Wearables Device Access Toolkit. Developer Mode: MetaAppID / ClientToken = 0 -->
+	<!-- Meta Wearables Device Access Toolkit.
+	     META_APP_ID / CLIENT_TOKEN / APPLE_TEAM_ID are build settings; left undefined they expand
+	     to empty strings, which the SDK treats as "no app ID" (Developer Mode, no attestation). -->
 	<key>MWDAT</key>
 	<dict>
 		<key>AppLinkURLScheme</key>
 		<string>glassestutor://</string>
 		<key>MetaAppID</key>
-		<string>0</string>
+		<string>$(META_APP_ID)</string>
 		<key>ClientToken</key>
-		<string>0</string>
+		<string>$(CLIENT_TOKEN)</string>
 		<key>TeamID</key>
-		<string>$(DEVELOPMENT_TEAM)</string>
+		<string>$(APPLE_TEAM_ID)</string>
 		<key>Analytics</key>
 		<dict>
 			<key>OptOut</key>
