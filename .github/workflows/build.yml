@@ -12,6 +12,10 @@ jobs:
   build:
     runs-on: macos-26
     timeout-minutes: 60
+    env:
+      META_APP_ID: ${{ secrets.META_APP_ID }}
+      CLIENT_TOKEN: ${{ secrets.CLIENT_TOKEN }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -37,11 +41,7 @@ jobs:
 
       # Registered build: IDs from the Wearables Developer Center project (repo secrets).
       - name: Build registered
-        if: ${{ secrets.META_APP_ID != '' }}
-        env:
-          META_APP_ID: ${{ secrets.META_APP_ID }}
-          CLIENT_TOKEN: ${{ secrets.CLIENT_TOKEN }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        if: ${{ env.META_APP_ID != '' }}
         run: |
           scripts/build-ipa.sh registered \
             "META_APP_ID=$META_APP_ID" \
