@@ -37,7 +37,7 @@ jobs:
 
       # Registered build: IDs from the Wearables Developer Center project (repo secrets).
       - name: Build registered
-        if: ${{ env.META_APP_ID != '' }}
+        if: ${{ secrets.META_APP_ID != '' }}
         env:
           META_APP_ID: ${{ secrets.META_APP_ID }}
           CLIENT_TOKEN: ${{ secrets.CLIENT_TOKEN }}

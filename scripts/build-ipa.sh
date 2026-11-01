@@ -20,6 +20,6 @@ xcodebuild build \
 grep -q "BUILD SUCCEEDED" "build-$VARIANT.log"
 APP=$(find "$DD/Build/Products/Release-iphoneos" -maxdepth 1 -name "*.app" | head -1)
 test -n "$APP"
-rm -rf "Payload-$VARIANT" && mkdir "Payload-$VARIANT" && cp -R "$APP" "Payload-$VARIANT/Payload" 2>/dev/null || { mkdir -p "Payload-$VARIANT/Payload"; cp -R "$APP" "Payload-$VARIANT/Payload/"; }
+rm -rf "Payload-$VARIANT" && mkdir -p "Payload-$VARIANT/Payload" && cp -R "$APP" "Payload-$VARIANT/Payload/"
 ( cd "Payload-$VARIANT" && zip -qr "../GlassesTutor-$VARIANT.ipa" Payload )
 ls -la "GlassesTutor-$VARIANT.ipa"
