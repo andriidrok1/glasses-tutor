@@ -26,20 +26,27 @@ SDK: `meta-wearables-dat-ios` 1.0.1, iOS 17.2+, Xcode 26.4+.
 
 ## Сборка
 
-Репозиторий на GitHub, публичный (macOS-раннеры там бесплатны; в приватном хватит примерно на 20 сборок в месяц). Каждый push в `main` или кнопка Run workflow даёт артефакт `GlassesTutor-ipa`.
-
-Первая сборка почти наверняка упадёт на типах SDK: код написан по сэмплам Meta без компиляции. Лог лежит в артефакте `build-log`, правки обычно в `GlassesController.swift`.
+Публичный репозиторий github.com/andriidrok1/glasses-tutor. Каждый push в `main` или кнопка Run workflow собирает неподписанный IPA и кладёт его в два места: артефакт `GlassesTutor-ipa` у запуска и релиз `latest` (https://github.com/andriidrok1/glasses-tutor/releases). Первая сборка 2026-11-01 прошла с первого раза.
 
 ## Установка на iPhone с Linux
 
-Нужен инструмент, который подписывает IPA бесплатным Apple ID и ставит по кабелю. Два варианта:
+Бесплатный Apple ID подписывает приложение на свой телефон, профиль живёт 7 дней. Инструмент: Impactor (https://github.com/claration/impactor), у него есть Linux AppImage и консольный `plumesign`. На этой машине оба лежат в `~/Applications/impactor/`. `usbmuxd` нужен и уже стоит.
 
-- Impactor (https://github.com/claration/impactor), Rust, работает на Linux, нужен `usbmuxd`.
-- SideServer for Linux (https://github.com/SideStore/SideServer-for-Linux), форк AltServer с GUI.
+Консольный путь:
 
-Профиль от бесплатного Apple ID живёт 7 дней. Через неделю приложение перестанет открываться, переустанови тот же IPA (SideStore и AltStore умеют обновлять сами, если телефон и ноут в одной сети).
+```
+cd ~/Applications/impactor
+./plumesign-linux-x86_64 account login -u ВАШ_APPLE_ID     # пароль и код 2FA спросит сам, один раз
+~/WebstormProjects/glasses-tutor/scripts/install.sh          # качает latest IPA, подписывает, ставит
+```
 
-Лимиты бесплатного Apple ID: 3 приложения одновременно, 10 App ID в неделю. Entitlements у приложения только `keychain-access-groups`, это бесплатному аккаунту доступно.
+Телефон при этом подключён по кабелю, разблокирован, на вопрос «Доверять компьютеру» ответить «Доверять». Скрипт спросит UDID, если устройств несколько.
+
+GUI-путь: запустить `Impactor-linux-x86_64.appimage`, войти Apple ID, перетащить `GlassesTutor.ipa`, выбрать устройство, Install.
+
+После установки на iPhone: Settings → General → VPN & Device Management → доверять своему Apple ID. Через 7 дней снова `scripts/install.sh`, данные приложения (ключ API) при переустановке сохраняются.
+
+Лимиты бесплатного Apple ID: 3 приложения одновременно, 10 App ID в неделю. Entitlements у приложения только `keychain-access-groups`, бесплатному аккаунту это доступно.
 
 ## Первый запуск
 
