@@ -67,6 +67,15 @@ GUI-путь: запустить `Impactor-linux-x86_64.appimage`, войти Ap
 
 Камера очков открыта только на время снимка, стрим с видео гасится сразу после старта затвора. Очки в таком режиме живут несколько часов.
 
+## Что проверено на живых очках (2026-11-01)
+
+- Ray-Ban Meta gen 1, iOS 18.7.1, SDK 1.0.1, Developer Mode, `devmode`-сборка: регистрация, камера, кнопка захвата и полноразмерный снимок работают. Проект в Developer Center для кнопки НЕ понадобился.
+- Сессию надо создавать через `SpecificDeviceSelector(device:)` с идентификатором из `devices`. `AutoDeviceSelector`, созданный и сразу использованный, даёт `noEligibleDevice`.
+- Снимок `.large/.high` это ~250 КБ, идёт по Bluetooth 10–13 секунд. Текст с экрана ноутбука с полуметра читается.
+- gpt-5 это модель с рассуждением: `max_completion_tokens` должен быть большим (4000), иначе ответ приходит пустым. Стоит `reasoning_effort: low`.
+- `UIGraphicsImageRenderer` по умолчанию берёт масштаб экрана (3x), пережатая картинка выходила 4800×2700. Формат с `scale = 1`.
+- Ответ по умолчанию по-русски, переключатель в приложении.
+
 ## Что может не завестись и что делать
 
 - `inputs: ... permissionDenied`. Inputs помечен в SDK как experimental и может требовать включения capability в Wearables Developer Center. Тогда: в проекте Developer Center включить Inputs, положить `APPLE_TEAM_ID` в секреты, поставить `GlassesTutor-registered.ipa`.
