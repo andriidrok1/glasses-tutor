@@ -4,8 +4,8 @@ import MWDATCamera
 import MWDATInputs
 
 enum TutorMode: String {
+    /// One mode: judge the student's work if there is any, otherwise solve and give the answer.
     case check = "check"
-    case solve = "solve"
 }
 
 /// Owns the glasses session: camera + standalone photo capability + capture button.
@@ -30,8 +30,8 @@ final class GlassesController: ObservableObject {
 
     /// Called the moment the button is pressed (before the photo arrives).
     var onCapture: (@MainActor (TutorMode) -> Void)?
-    /// Tap on the temple touchpad.
-    var onTap: (@MainActor () -> Void)?
+    /// Double press of the capture button: play / pause / repeat the answer.
+    var onPlay: (@MainActor () -> Void)?
     /// Called with JPEG/HEIC bytes once the photo crossed the Bluetooth link.
     var onPhoto: (@MainActor (Data) -> Void)?
 
@@ -292,7 +292,7 @@ final class GlassesController: ObservableObject {
 
     private func attachInputs(_ s: DeviceSession) {
         guard inputs == nil else { return }
-        let configuration = InputsConfiguration(sources: [.captureButton, .captouch])
+        let configuration = InputsConfiguration(sources: [.captureButton])
         do {
             guard let attached = try s.addInputs(configuration: configuration) else {
                 log("this pair reports no inputs")
@@ -321,14 +321,11 @@ final class GlassesController: ObservableObject {
             guard source == .captureButton else { return }
             switch pressType {
             case .shortPress: capture(mode: .check)
-            case .doublePress: capture(mode: .solve)
+            case .doublePress:
+                log("double press: play/pause")
+                onPlay?()
             default: break
             }
-        case let .select(source, _) where source == .captouch:
-            log("touchpad tap")
-            onTap?()
-        case let .nav(direction, source, _) where source == .captouch:
-            log("touchpad swipe \(direction)")
         default:
             break
         }

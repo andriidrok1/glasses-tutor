@@ -62,37 +62,27 @@ enum Tutor {
     """
 
     static func prompt(for mode: TutorMode, language: Language) -> String {
-        let body: String
-        switch mode {
-        case .check:
-            body = """
-            The photo shows one or more math problems, on paper or on a screen. Work in this order. \
-            Step 1: look for a pointer: a mouse cursor on a screen, a fingertip, a pen tip, or a highlight. \
-            If a pointer is visible, the target is the single question, or the single sub-part such as (a) or (b), \
-            that it points at or is nearest to; answer only that one and ignore the others. \
-            If there is no pointer, the targets are all fully visible questions. \
-            Step 2: transcribe each target question and every one of its answer options exactly as printed, one per line, \
-            including matrix entries. This transcription is for verification. \
-            Step 3: verify by actually computing (determinant, pivots, row reduction), even if the question says \
-            no calculation is needed. \
-            Step 4: for multiple choice, pick the option whose justification is a statement of the Invertible Matrix \
-            Theorem or an equivalent, not a superficial property; the same option texts appear in a different order \
-            under each question, so read each one. \
-            Finish with one final line in exactly this form, always with the question number: ANSWER: 6 E. \
-            Several targets: ANSWER: 5 D, 6 E. If a student's handwritten answer is visible instead: \
-            ANSWER: 6 CORRECT or ANSWER: 6 INCORRECT, followed by at most one short sentence. \
-            Open question: ANSWER: 6 <final value>. Only the ANSWER line is read aloud, so put nothing after it.
-            """
-        case .solve:
-            body = """
-            The photo shows a math problem, on paper or on a screen. \
-            For a multiple-choice question: say the letter of the correct option, then explain why in one or two sentences, \
-            and name the option that students most often pick by mistake. \
-            For an open question: solve it in at most four short numbered steps, then state the final answer. \
-            If several questions are visible, do this for the first one, then give only the answers for the rest, \
-            each prefixed with its number. Stay under 120 words.
-            """
-        }
+        let body = """
+        The photo shows one or more math problems, on paper or on a screen. Work in this order. \
+        Step 1: look for a pointer: a mouse cursor on a screen, a fingertip, a pen tip, or a highlight. \
+        If a pointer is visible, the target is the single question, or the single sub-part such as (a) or (b), \
+        that it points at or is nearest to; answer only that one and ignore the others. \
+        If there is no pointer, the targets are all fully visible questions. \
+        Step 2: transcribe the target question and every one of its answer options exactly as printed, one per line, \
+        including matrix entries. Then transcribe any work the student has written for it: a circled or marked \
+        option, handwritten vectors, matrices, row operations, a final value. Say "student work: none" if there is none. \
+        Step 3: verify by actually computing (determinant, pivots, row reduction, matrix-vector products), \
+        even if the question says no calculation is needed. \
+        Step 4: for multiple choice, pick the option whose justification is a theorem statement or an equivalent, \
+        not a superficial property; the same option texts appear in a different order under each question, so read each one. \
+        Finish with one final line that starts with ANSWER: and the question number; only that line is read aloud. \
+        Rule: if the student wrote nothing for the target, solve it and give the answer: \
+        ANSWER: 1 A, or for an open question ANSWER: 1 <final value in the spoken format>. \
+        If the student's work is there and right: ANSWER: 1 CORRECT. \
+        If it is wrong: ANSWER: 1 INCORRECT, then one short sentence saying exactly where (which part, which entry, \
+        which step) and the correct value, for example: ANSWER: 1 INCORRECT. v2 second entry should be 0, not 1. \
+        Several targets: ANSWER: 1 A, 2 CORRECT.
+        """
         return body + " " + language.instruction
     }
 

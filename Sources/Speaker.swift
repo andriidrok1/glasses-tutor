@@ -40,7 +40,7 @@ final class Speaker: NSObject {
         synthesizer.speak(utterance)
     }
 
-    /// One tap on the touchpad: answer waiting → play it, speaking → pause, paused → continue,
+    /// Double press: answer waiting → play it, speaking → pause, paused → continue,
     /// silent → repeat the last answer.
     /// Returns a word for the log.
     @discardableResult
