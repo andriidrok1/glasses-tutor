@@ -44,6 +44,10 @@ enum Tutor {
     not being augmented. \
     Reply in plain English prose only: no markdown, no LaTeX, no bullet symbols. \
     Write every formula in words or simple ASCII so a text-to-speech engine can read it aloud. \
+    Spoken format for values: a vector as "v1 = 1, 2, 0" (entries in order, separated by commas); \
+    a matrix row by row as "matrix 2 by 3, row 1: 1 2 0, row 2: 2 4 1"; a fraction as "3 over 4"; \
+    a power as "x squared" or "x to the 5th"; a root as "square root of 2"; several parts as \
+    "part a: ..., part b: ...". \
     The text is often small or photographed at an angle; read it carefully before giving up. \
     Say exactly "Photo unreadable, try again." only when the numbers cannot be made out even in the zoomed image.
     """
@@ -64,7 +68,8 @@ enum Tutor {
             body = """
             The photo shows one or more math problems, on paper or on a screen. Work in this order. \
             Step 1: look for a pointer: a mouse cursor on a screen, a fingertip, a pen tip, or a highlight. \
-            If a pointer is visible, the target is the single question it points at or is nearest to; ignore the others. \
+            If a pointer is visible, the target is the single question, or the single sub-part such as (a) or (b), \
+            that it points at or is nearest to; answer only that one and ignore the others. \
             If there is no pointer, the targets are all fully visible questions. \
             Step 2: transcribe each target question and every one of its answer options exactly as printed, one per line, \
             including matrix entries. This transcription is for verification. \

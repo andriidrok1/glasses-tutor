@@ -23,6 +23,13 @@ final class AppModel: ObservableObject {
     @Published var photoQuality: PhotoQuality {
         didSet { UserDefaults.standard.set(photoQuality.rawValue, forKey: "photoQuality"); glasses.photoQuality = photoQuality }
     }
+    /// Empty = speak the answer as soon as it arrives; otherwise chime and wait for a touchpad tap.
+    @Published var autoPlay: Bool {
+        didSet { UserDefaults.standard.set(autoPlay, forKey: "autoPlay") }
+    }
+    @Published var debugURL: String {
+        didSet { UserDefaults.standard.set(debugURL, forKey: "debugURL"); DebugSink.url = URL(string: debugURL) }
+    }
     @Published var lastAnswer = ""
     @Published var busy = false
     @Published var lastPhoto: UIImage?
@@ -43,6 +50,9 @@ final class AppModel: ObservableObject {
         photoQuality = PhotoQuality(rawValue: d.string(forKey: "photoQuality") ?? "") ?? .medium
         glasses.photoResolution = photoResolution
         glasses.photoQuality = photoQuality
+        autoPlay = d.object(forKey: "autoPlay") as? Bool ?? false
+        debugURL = d.string(forKey: "debugURL") ?? ""
+        DebugSink.url = URL(string: debugURL)
 
         // GlassesController is a nested ObservableObject; SwiftUI only watches this one.
         glasses.objectWillChange
@@ -98,6 +108,7 @@ final class AppModel: ObservableObject {
         if let match, let zoom = Tutor.jpeg(match.crop, minSide: 1400, maxSide: 2000) {
             images.insert(zoom, at: 0)
             lastPhoto = match.crop
+            DebugSink.photo("zoom", zoom)
             info += "; text block \(match.lines) lines \(Int(match.rect.width))x\(Int(match.rect.height)) → zoom \(zoom.count / 1024) KB"
             savePhoto(zoom, suffix: "-zoom")
         } else {
@@ -107,6 +118,7 @@ final class AppModel: ObservableObject {
         lastPhotoInfo = info
         glasses.log("photo: \(info)")
         savePhoto(full)
+        DebugSink.photo("full", full)
         let effectiveModel = model.isEmpty ? provider.defaultModel : model
         do {
             let text = try await Tutor.ask(
@@ -114,9 +126,15 @@ final class AppModel: ObservableObject {
                 provider: provider, model: effectiveModel, apiKey: apiKey
             )
             lastAnswer = text
+            DebugSink.text("reply", text)
             let spoken = Tutor.spokenPart(of: text)
-            glasses.log("answer: \(spoken)")
-            speaker.speak(spoken, language: language.voice)
+            if autoPlay {
+                glasses.log("answer: \(spoken)")
+                speaker.speak(spoken, language: language.voice)
+            } else {
+                glasses.log("answer ready, tap to play: \(spoken)")
+                speaker.ready(spoken, language: language.voice)
+            }
         } catch {
             lastAnswer = "Error: \(error.localizedDescription)"
             glasses.log("api error: \(error)")

@@ -37,6 +37,11 @@ struct ContentView: View {
                     Picker("Photo quality", selection: $model.photoQuality) {
                         ForEach(PhotoQuality.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
+                    Toggle("Speak answer immediately (off = chime, tap to play)", isOn: $model.autoPlay)
+                    TextField("Debug server URL (empty = off)", text: $model.debugURL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
                 }
 
                 Section("Test without the button") {

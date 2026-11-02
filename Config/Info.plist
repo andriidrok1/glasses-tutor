@@ -76,6 +76,11 @@
 	<string>Needed to connect to the glasses.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>Needed to connect to the glasses.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Lets the phone find the glasses over Wi-Fi.</string>
 	<key>NSBonjourServices</key>

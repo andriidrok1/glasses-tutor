@@ -6,6 +6,9 @@ import AudioToolbox
 final class Speaker: NSObject {
     private let synthesizer = AVSpeechSynthesizer()
     private var last: (text: String, language: String)?
+    /// An answer that is ready but waits for a tap on the touchpad.
+    private var pending: (text: String, language: String)?
+    var hasPending: Bool { pending != nil }
 
     private func activate() {
         let session = AVAudioSession.sharedInstance()
@@ -19,6 +22,14 @@ final class Speaker: NSObject {
         AudioServicesPlaySystemSound(1057)
     }
 
+    /// "Answer is ready": a different short sound in the glasses plus a buzz of the phone.
+    func ready(_ text: String, language: String = "en-US") {
+        activate()
+        pending = (text, language)
+        AudioServicesPlaySystemSound(1003)
+        AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+    }
+
     func speak(_ text: String, language: String = "en-US") {
         activate()
         last = (text, language)
@@ -29,10 +40,16 @@ final class Speaker: NSObject {
         synthesizer.speak(utterance)
     }
 
-    /// One tap on the touchpad: speaking → pause, paused → continue, silent → repeat the last answer.
+    /// One tap on the touchpad: answer waiting → play it, speaking → pause, paused → continue,
+    /// silent → repeat the last answer.
     /// Returns a word for the log.
     @discardableResult
     func togglePause() -> String {
+        if let pending {
+            self.pending = nil
+            speak(pending.text, language: pending.language)
+            return "play"
+        }
         if synthesizer.isPaused {
             synthesizer.continueSpeaking()
             return "resume"

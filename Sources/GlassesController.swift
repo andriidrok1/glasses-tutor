@@ -51,6 +51,7 @@ final class GlassesController: ObservableObject {
         lines.append("\(stamp) \(s)")
         if lines.count > 200 { lines.removeFirst(lines.count - 200) }
         print("[GlassesTutor] \(s)")
+        DebugSink.log(s)
     }
 
     private static let clock: DateFormatter = {
