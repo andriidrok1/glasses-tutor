@@ -81,6 +81,7 @@ final class AppModel: ObservableObject {
             self?.pendingMode = mode
             self?.speaker.beep()
         }
+        speaker.log = { [weak self] line in Task { @MainActor in self?.glasses.log(line) } }
         glasses.onPlay = { [weak self] in
             guard let self else { return }
             glasses.log("play: \(speaker.togglePause())")
