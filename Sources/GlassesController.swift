@@ -22,6 +22,7 @@ final class GlassesController: ObservableObject {
     @Published var shutterReady = false
     @Published var buttonReady = false
     @Published var lines: [String] = []
+    @Published var deviceInfo = "no glasses seen yet"
 
     /// Called the moment the button is pressed (before the photo arrives).
     var onCapture: (@MainActor (TutorMode) -> Void)?
@@ -35,6 +36,7 @@ final class GlassesController: ObservableObject {
     private var tasks: [Task<Void, Never>] = []
     private var photoStartRequested = false
     private var streamReleased = false
+    private var watchedDevices: Set<UUID> = []
 
     func log(_ s: String) {
         let stamp = Self.clock.string(from: Date())
@@ -59,9 +61,49 @@ final class GlassesController: ObservableObject {
         })
         tasks.append(Task { [weak self] in
             for await ids in Wearables.shared.devicesStream() {
-                await MainActor.run { self?.log("devices: \(ids.count)") }
+                await MainActor.run {
+                    guard let self else { return }
+                    self.log("devices: \(ids.count)")
+                    for id in ids { self.watch(id) }
+                }
             }
         })
+    }
+
+    // MARK: - Device diagnostics
+
+    private func describe(_ d: Device, _ state: DeviceState) -> String {
+        "\(d.nameOrId()) \(d.deviceType()) link=\(state.linkState) compat=\(state.compatibility) "
+            + "worn=\(state.donState) battery=\(state.batteryLevel.map(String.init) ?? "?")"
+    }
+
+    private func watch(_ id: DeviceIdentifier) {
+        guard let device = Wearables.shared.deviceForIdentifier(id) else {
+            log("device \(id): no Device object")
+            return
+        }
+        guard !watchedDevices.contains(device.deviceUUID) else { return }
+        watchedDevices.insert(device.deviceUUID)
+        device.addDeviceStateListener { [weak self] state in
+            Task { @MainActor in
+                guard let self else { return }
+                let line = self.describe(device, state)
+                self.deviceInfo = line
+                self.log("device: \(line)")
+                if state.linkState == .connected, state.compatibility == .compatible, self.session == nil {
+                    self.log("glasses connected and compatible, starting session")
+                    self.connect()
+                }
+            }
+        }.store(in: tokens)
+    }
+
+    func openFirmwareUpdate() async {
+        do { try await Wearables.shared.openFirmwareUpdate() } catch { log("firmware update: \(error)") }
+    }
+
+    func openGlassesAppUpdate() async {
+        do { try await Wearables.shared.openDATGlassesAppUpdate() } catch { log("glasses app update: \(error)") }
     }
 
     func register() async {
@@ -106,7 +148,7 @@ final class GlassesController: ObservableObject {
             })
             tasks.append(Task { [weak self] in
                 for await error in s.errorStream() {
-                    await MainActor.run { self?.log("session error: \(error)") }
+                    await MainActor.run { self?.log("session error: \(error.description)") }
                 }
             })
             try s.start()

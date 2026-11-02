@@ -8,12 +8,15 @@ struct ContentView: View {
             Form {
                 Section("Glasses") {
                     LabeledContent("Registration", value: model.glasses.registration)
+                    Text(model.glasses.deviceInfo).font(.caption)
                     LabeledContent("Session", value: model.glasses.sessionState)
                     LabeledContent("Shutter", value: model.glasses.shutterReady ? "ready" : "not ready")
                     LabeledContent("Capture button", value: model.glasses.buttonReady ? "listening" : "not attached")
                     Button("1. Register in Meta AI") { Task { await model.glasses.register() } }
                     Button("2. Allow camera in Meta AI") { Task { await model.glasses.requestCameraPermission() } }
                     Button("Reconnect session") { model.glasses.reconnect() }
+                    Button("Open glasses firmware update (Meta AI)") { Task { await model.glasses.openFirmwareUpdate() } }
+                    Button("Open glasses app update (Meta AI)") { Task { await model.glasses.openGlassesAppUpdate() } }
                 }
 
                 Section("Model") {
