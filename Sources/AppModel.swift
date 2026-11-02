@@ -48,10 +48,10 @@ final class AppModel: ObservableObject {
         language = Tutor.Language(rawValue: d.string(forKey: "language") ?? "") ?? .english
         photoResolution = PhotoResolution(rawValue: d.string(forKey: "photoResolution") ?? "") ?? .full
         photoQuality = PhotoQuality(rawValue: d.string(forKey: "photoQuality") ?? "") ?? .medium
-        glasses.photoResolution = photoResolution
-        glasses.photoQuality = photoQuality
         autoPlay = d.object(forKey: "autoPlay") as? Bool ?? false
         debugURL = d.string(forKey: "debugURL") ?? ""
+        glasses.photoResolution = photoResolution
+        glasses.photoQuality = photoQuality
         DebugSink.url = URL(string: debugURL)
 
         // GlassesController is a nested ObservableObject; SwiftUI only watches this one.
