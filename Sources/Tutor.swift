@@ -45,14 +45,21 @@ enum Tutor {
         }
     }
 
-    /// Re-encode whatever the glasses sent (JPEG or HEIC) as a JPEG no wider than 1600 px.
+    /// Make sure the model gets a JPEG no wider than 1600 px. The glasses already send a
+    /// compressed image; if it is a JPEG and already small enough it goes through untouched.
     static func normalize(_ data: Data) -> Data {
+        let isJPEG = data.count > 2 && data[data.startIndex] == 0xFF && data[data.startIndex + 1] == 0xD8
         guard let image = UIImage(data: data) else { return data }
         let maxSide: CGFloat = 1600
-        let longest = max(image.size.width, image.size.height)
+        let pixelW = image.size.width * image.scale
+        let pixelH = image.size.height * image.scale
+        let longest = max(pixelW, pixelH)
+        if isJPEG && longest <= maxSide { return data }
         let scale = longest > maxSide ? maxSide / longest : 1
-        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: size)
+        let size = CGSize(width: (pixelW * scale).rounded(), height: (pixelH * scale).rounded())
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1   // pixel size == point size; the default would use the screen's 3x
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
         let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
         return resized.jpegData(compressionQuality: 0.85) ?? data
     }

@@ -68,7 +68,7 @@ final class AppModel: ObservableObject {
         let jpeg = Tutor.normalize(raw)
         let image = UIImage(data: jpeg)
         lastPhoto = image
-        let dims = image.map { "\(Int($0.size.width))x\(Int($0.size.height))" } ?? "undecodable"
+        let dims = image.map { "\(Int($0.size.width * $0.scale))x\(Int($0.size.height * $0.scale))" } ?? "undecodable"
         lastPhotoInfo = "raw \(raw.count / 1024) KB → jpeg \(jpeg.count / 1024) KB, \(dims)"
         glasses.log("photo: \(lastPhotoInfo)")
         savePhoto(jpeg)
