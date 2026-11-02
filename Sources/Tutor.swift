@@ -155,7 +155,7 @@ enum Tutor {
             "model": model,
             // Reasoning models (gpt-5 family) spend completion tokens on thinking first;
             // a small budget leaves nothing for the visible answer.
-            "max_completion_tokens": 4000,
+            "max_completion_tokens": 20000,
             "messages": messages,
         ]
         let lower = model.lowercased()
@@ -197,7 +197,7 @@ enum Tutor {
         messages.append(["role": "user", "content": images.map(imagePart) + [["type": "text", "text": prompt]]])
         let body: [String: Any] = [
             "model": model,
-            "max_tokens": 1000,
+            "max_tokens": 4000,
             "system": system,
             "messages": messages,
         ]
