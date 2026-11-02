@@ -42,6 +42,7 @@ struct ContentView: View {
                 Section("Test without the button") {
                     Button("Capture: check my answer") { model.glasses.capture(mode: .check) }
                     Button("Capture: solve") { model.glasses.capture(mode: .solve) }
+                    Button("Touchpad tap: pause / resume / repeat") { model.glasses.log("tap: \(model.speaker.togglePause())") }
                     Button("Say test phrase") {
                         model.speaker.speak(model.language == .russian ? "Проверка звука. Верно." : "Audio route test. Correct.", language: model.language.voice)
                     }

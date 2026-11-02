@@ -53,6 +53,10 @@ final class AppModel: ObservableObject {
             self?.pendingMode = mode
             self?.speaker.beep()
         }
+        glasses.onTap = { [weak self] in
+            guard let self else { return }
+            glasses.log("tap: \(speaker.togglePause())")
+        }
         glasses.onPhoto = { [weak self] data in
             Task { await self?.answer(data) }
         }

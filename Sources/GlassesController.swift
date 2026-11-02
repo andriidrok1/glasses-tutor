@@ -30,6 +30,8 @@ final class GlassesController: ObservableObject {
 
     /// Called the moment the button is pressed (before the photo arrives).
     var onCapture: (@MainActor (TutorMode) -> Void)?
+    /// Tap on the temple touchpad.
+    var onTap: (@MainActor () -> Void)?
     /// Called with JPEG/HEIC bytes once the photo crossed the Bluetooth link.
     var onPhoto: (@MainActor (Data) -> Void)?
 
@@ -289,7 +291,7 @@ final class GlassesController: ObservableObject {
 
     private func attachInputs(_ s: DeviceSession) {
         guard inputs == nil else { return }
-        let configuration = InputsConfiguration(sources: [.captureButton])
+        let configuration = InputsConfiguration(sources: [.captureButton, .captouch])
         do {
             guard let attached = try s.addInputs(configuration: configuration) else {
                 log("this pair reports no inputs")
@@ -321,6 +323,11 @@ final class GlassesController: ObservableObject {
             case .doublePress: capture(mode: .solve)
             default: break
             }
+        case let .select(source, _) where source == .captouch:
+            log("touchpad tap")
+            onTap?()
+        case let .nav(direction, source, _) where source == .captouch:
+            log("touchpad swipe \(direction)")
         default:
             break
         }
