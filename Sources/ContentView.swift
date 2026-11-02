@@ -27,12 +27,17 @@ struct ContentView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     SecureField("API key", text: $model.apiKey)
+                    Picker("Answer language", selection: $model.language) {
+                        ForEach(Tutor.Language.allCases) { Text($0.title).tag($0) }
+                    }
                 }
 
                 Section("Test without the button") {
                     Button("Capture: check my answer") { model.glasses.capture(mode: .check) }
                     Button("Capture: solve") { model.glasses.capture(mode: .solve) }
-                    Button("Say test phrase") { model.speaker.speak("Audio route test. Correct.") }
+                    Button("Say test phrase") {
+                        model.speaker.speak(model.language == .russian ? "Проверка звука. Верно." : "Audio route test. Correct.", language: model.language.voice)
+                    }
                 }
 
                 Section("Last photo") {

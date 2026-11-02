@@ -18,11 +18,11 @@ final class Speaker: NSObject {
         AudioServicesPlaySystemSound(1057)
     }
 
-    func speak(_ text: String) {
+    func speak(_ text: String, language: String = "en-US") {
         activate()
         if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.voice = AVSpeechSynthesisVoice(language: language)
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         synthesizer.speak(utterance)
     }

@@ -9,6 +9,18 @@ enum Tutor {
         var defaultModel: String { self == .openai ? "gpt-5" : "claude-sonnet-5-5" }
     }
 
+    enum Language: String, CaseIterable, Identifiable {
+        case english, russian
+        var id: String { rawValue }
+        var title: String { self == .english ? "English" : "Русский" }
+        var voice: String { self == .english ? "en-US" : "ru-RU" }
+        var instruction: String {
+            self == .english
+                ? "Reply in English."
+                : "Отвечай по-русски. Числа и формулы пиши словами или простыми цифрами, без LaTeX и markdown, чтобы синтезатор речи мог это прочитать."
+        }
+    }
+
     struct APIError: LocalizedError {
         let message: String
         var errorDescription: String? { message }
@@ -21,20 +33,20 @@ enum Tutor {
     If the photo is unreadable, say exactly: Photo unreadable, try again.
     """
 
-    static func prompt(for mode: TutorMode) -> String {
+    static func prompt(for mode: TutorMode, language: Language) -> String {
+        let body: String
         switch mode {
         case .check:
-            return """
-            The photo shows a math problem, on paper or on a screen. \
-            If a student's handwritten or selected answer is visible: reply in at most two short sentences, \
-            starting with the single word CORRECT or INCORRECT, then one sentence why. \
-            If no student answer is visible: give the answer. For a multiple-choice question say the letter first, \
-            then one sentence why. For an open question give only the final answer in one sentence. \
-            If several questions are visible, answer the first one fully, then give only the answers for the rest, \
-            each prefixed with its number.
+            body = """
+            The photo shows a math problem, on paper or on a screen. Be as brief as possible. \
+            Multiple-choice question: reply with the correct letter only, nothing else. \
+            Several multiple-choice questions visible: reply with each number and its letter, like "1 E, 2 F". \
+            If a student's handwritten answer is visible: reply with the single word CORRECT or INCORRECT, \
+            then at most one short sentence why. \
+            Open question with no student answer: give only the final answer in one short sentence.
             """
         case .solve:
-            return """
+            body = """
             The photo shows a math problem, on paper or on a screen. \
             For a multiple-choice question: say the letter of the correct option, then explain why in one or two sentences, \
             and name the option that students most often pick by mistake. \
@@ -43,6 +55,7 @@ enum Tutor {
             each prefixed with its number. Stay under 120 words.
             """
         }
+        return body + " " + language.instruction
     }
 
     /// Make sure the model gets a JPEG no wider than 1600 px. The glasses already send a
@@ -64,14 +77,15 @@ enum Tutor {
         return resized.jpegData(compressionQuality: 0.85) ?? data
     }
 
-    static func ask(image: Data, mode: TutorMode, provider: Provider, model: String, apiKey: String) async throws -> String {
+    static func ask(image: Data, mode: TutorMode, language: Language, provider: Provider, model: String, apiKey: String) async throws -> String {
+        let prompt = prompt(for: mode, language: language)
         switch provider {
-        case .openai: return try await askOpenAI(image: image, mode: mode, model: model, apiKey: apiKey)
-        case .anthropic: return try await askAnthropic(image: image, mode: mode, model: model, apiKey: apiKey)
+        case .openai: return try await askOpenAI(image: image, prompt: prompt, model: model, apiKey: apiKey)
+        case .anthropic: return try await askAnthropic(image: image, prompt: prompt, model: model, apiKey: apiKey)
         }
     }
 
-    private static func askOpenAI(image: Data, mode: TutorMode, model: String, apiKey: String) async throws -> String {
+    private static func askOpenAI(image: Data, prompt: String, model: String, apiKey: String) async throws -> String {
         var body: [String: Any] = [
             "model": model,
             // Reasoning models (gpt-5 family) spend completion tokens on thinking first;
@@ -80,7 +94,7 @@ enum Tutor {
             "messages": [
                 ["role": "system", "content": system],
                 ["role": "user", "content": [
-                    ["type": "text", "text": prompt(for: mode)],
+                    ["type": "text", "text": prompt],
                     ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + image.base64EncodedString(), "detail": "high"]],
                 ]],
             ],
@@ -112,7 +126,7 @@ enum Tutor {
         return content
     }
 
-    private static func askAnthropic(image: Data, mode: TutorMode, model: String, apiKey: String) async throws -> String {
+    private static func askAnthropic(image: Data, prompt: String, model: String, apiKey: String) async throws -> String {
         let body: [String: Any] = [
             "model": model,
             "max_tokens": 1000,
@@ -120,7 +134,7 @@ enum Tutor {
             "messages": [
                 ["role": "user", "content": [
                     ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": image.base64EncodedString()]],
-                    ["type": "text", "text": prompt(for: mode)],
+                    ["type": "text", "text": prompt],
                 ]],
             ],
         ]

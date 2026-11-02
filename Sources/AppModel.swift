@@ -13,6 +13,9 @@ final class AppModel: ObservableObject {
     @Published var apiKey: String {
         didSet { UserDefaults.standard.set(apiKey, forKey: "apiKey") }
     }
+    @Published var language: Tutor.Language {
+        didSet { UserDefaults.standard.set(language.rawValue, forKey: "language") }
+    }
     @Published var lastAnswer = ""
     @Published var busy = false
     @Published var lastPhoto: UIImage?
@@ -28,6 +31,7 @@ final class AppModel: ObservableObject {
         provider = Tutor.Provider(rawValue: d.string(forKey: "provider") ?? "") ?? .openai
         model = d.string(forKey: "model") ?? ""
         apiKey = d.string(forKey: "apiKey") ?? ""
+        language = Tutor.Language(rawValue: d.string(forKey: "language") ?? "") ?? .english
 
         // GlassesController is a nested ObservableObject; SwiftUI only watches this one.
         glasses.objectWillChange
@@ -75,16 +79,16 @@ final class AppModel: ObservableObject {
         let effectiveModel = model.isEmpty ? provider.defaultModel : model
         do {
             let text = try await Tutor.ask(
-                image: jpeg, mode: pendingMode,
+                image: jpeg, mode: pendingMode, language: language,
                 provider: provider, model: effectiveModel, apiKey: apiKey
             )
             lastAnswer = text
             glasses.log("answer: \(text)")
-            speaker.speak(text)
+            speaker.speak(text, language: language.voice)
         } catch {
             lastAnswer = "Error: \(error.localizedDescription)"
             glasses.log("api error: \(error)")
-            speaker.speak("Request failed.")
+            speaker.speak(language == .russian ? "Ошибка запроса." : "Request failed.", language: language.voice)
         }
     }
 }
