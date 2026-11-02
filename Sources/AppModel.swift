@@ -15,6 +15,8 @@ final class AppModel: ObservableObject {
     }
     @Published var lastAnswer = ""
     @Published var busy = false
+    @Published var lastPhoto: UIImage?
+    @Published var lastPhotoInfo = ""
 
     let glasses = GlassesController()
     let speaker = Speaker()
@@ -43,6 +45,18 @@ final class AppModel: ObservableObject {
         glasses.connect()
     }
 
+    /// Keeps the last few photos in Documents/, visible in the Files app under Glasses Tutor.
+    private func savePhoto(_ data: Data) {
+        guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        try? data.write(to: dir.appendingPathComponent("photo-\(stamp).jpg"))
+        if let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+            for old in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }).dropLast(10) {
+                try? FileManager.default.removeItem(at: old)
+            }
+        }
+    }
+
     func answer(_ raw: Data) async {
         guard !apiKey.isEmpty else {
             lastAnswer = "No API key set."
@@ -52,6 +66,12 @@ final class AppModel: ObservableObject {
         busy = true
         defer { busy = false }
         let jpeg = Tutor.normalize(raw)
+        let image = UIImage(data: jpeg)
+        lastPhoto = image
+        let dims = image.map { "\(Int($0.size.width))x\(Int($0.size.height))" } ?? "undecodable"
+        lastPhotoInfo = "raw \(raw.count / 1024) KB → jpeg \(jpeg.count / 1024) KB, \(dims)"
+        glasses.log("photo: \(lastPhotoInfo)")
+        savePhoto(jpeg)
         let effectiveModel = model.isEmpty ? provider.defaultModel : model
         do {
             let text = try await Tutor.ask(

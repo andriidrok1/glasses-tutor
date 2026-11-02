@@ -35,6 +35,16 @@ struct ContentView: View {
                     Button("Say test phrase") { model.speaker.speak("Audio route test. Correct.") }
                 }
 
+                Section("Last photo") {
+                    if let photo = model.lastPhoto {
+                        Image(uiImage: photo)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: 260)
+                    }
+                    Text(model.lastPhotoInfo.isEmpty ? "none yet" : model.lastPhotoInfo).font(.caption)
+                }
+
                 Section("Last answer") {
                     if model.busy { ProgressView() }
                     Text(model.lastAnswer.isEmpty ? "—" : model.lastAnswer)

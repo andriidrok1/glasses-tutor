@@ -83,6 +83,11 @@
 		<string>_bonjour._tcp</string>
 	</array>
 
+	<!-- Expose Documents/ (saved photos) in the Files app -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
