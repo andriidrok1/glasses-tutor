@@ -72,17 +72,23 @@ enum Tutor {
     }
 
     private static func askOpenAI(image: Data, mode: TutorMode, model: String, apiKey: String) async throws -> String {
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "model": model,
-            "max_completion_tokens": 600,
+            // Reasoning models (gpt-5 family) spend completion tokens on thinking first;
+            // a small budget leaves nothing for the visible answer.
+            "max_completion_tokens": 4000,
             "messages": [
                 ["role": "system", "content": system],
                 ["role": "user", "content": [
                     ["type": "text", "text": prompt(for: mode)],
-                    ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + image.base64EncodedString()]],
+                    ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + image.base64EncodedString(), "detail": "high"]],
                 ]],
             ],
         ]
+        let lower = model.lowercased()
+        if lower.hasPrefix("gpt-5") || lower.hasPrefix("o1") || lower.hasPrefix("o3") || lower.hasPrefix("o4") {
+            body["reasoning_effort"] = "low"
+        }
         var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -91,16 +97,25 @@ enum Tutor {
         let json = try await send(request)
         guard
             let choices = json["choices"] as? [[String: Any]],
-            let message = choices.first?["message"] as? [String: Any],
-            let content = message["content"] as? String
+            let first = choices.first,
+            let message = first["message"] as? [String: Any]
         else { throw APIError(message: "OpenAI: unexpected response") }
-        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let content = (message["content"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if content.isEmpty {
+            let finish = first["finish_reason"] as? String ?? "?"
+            let usage = json["usage"] as? [String: Any]
+            let details = usage?["completion_tokens_details"] as? [String: Any]
+            let reasoning = details?["reasoning_tokens"] as? Int ?? 0
+            let refusal = message["refusal"] as? String ?? ""
+            throw APIError(message: "OpenAI returned no text (finish_reason=\(finish), reasoning_tokens=\(reasoning)\(refusal.isEmpty ? "" : ", refusal: \(refusal)"))")
+        }
+        return content
     }
 
     private static func askAnthropic(image: Data, mode: TutorMode, model: String, apiKey: String) async throws -> String {
         let body: [String: Any] = [
             "model": model,
-            "max_tokens": 600,
+            "max_tokens": 1000,
             "system": system,
             "messages": [
                 ["role": "user", "content": [
