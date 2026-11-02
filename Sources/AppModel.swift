@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import MWDATCamera
 import UIKit
 
 @MainActor
@@ -15,6 +16,12 @@ final class AppModel: ObservableObject {
     }
     @Published var language: Tutor.Language {
         didSet { UserDefaults.standard.set(language.rawValue, forKey: "language") }
+    }
+    @Published var photoResolution: PhotoResolution {
+        didSet { UserDefaults.standard.set(photoResolution.rawValue, forKey: "photoResolution"); glasses.photoResolution = photoResolution }
+    }
+    @Published var photoQuality: PhotoQuality {
+        didSet { UserDefaults.standard.set(photoQuality.rawValue, forKey: "photoQuality"); glasses.photoQuality = photoQuality }
     }
     @Published var lastAnswer = ""
     @Published var busy = false
@@ -32,6 +39,10 @@ final class AppModel: ObservableObject {
         model = d.string(forKey: "model") ?? ""
         apiKey = d.string(forKey: "apiKey") ?? ""
         language = Tutor.Language(rawValue: d.string(forKey: "language") ?? "") ?? .english
+        photoResolution = PhotoResolution(rawValue: d.string(forKey: "photoResolution") ?? "") ?? .full
+        photoQuality = PhotoQuality(rawValue: d.string(forKey: "photoQuality") ?? "") ?? .medium
+        glasses.photoResolution = photoResolution
+        glasses.photoQuality = photoQuality
 
         // GlassesController is a nested ObservableObject; SwiftUI only watches this one.
         glasses.objectWillChange

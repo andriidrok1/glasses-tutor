@@ -1,3 +1,4 @@
+import MWDATCamera
 import SwiftUI
 
 struct ContentView: View {
@@ -29,6 +30,12 @@ struct ContentView: View {
                     SecureField("API key", text: $model.apiKey)
                     Picker("Answer language", selection: $model.language) {
                         ForEach(Tutor.Language.allCases) { Text($0.title).tag($0) }
+                    }
+                    Picker("Photo resolution", selection: $model.photoResolution) {
+                        ForEach(PhotoResolution.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                    Picker("Photo quality", selection: $model.photoQuality) {
+                        ForEach(PhotoQuality.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
                 }
 

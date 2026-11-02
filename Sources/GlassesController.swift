@@ -20,6 +20,10 @@ final class GlassesController: ObservableObject {
     @Published var registration = "unknown"
     @Published var sessionState = "idle"
     @Published var shutterReady = false
+    /// Photo settings; `.large` gave 1920x1080, `.full` should be the sensor's native size.
+    var photoResolution: PhotoResolution = .full
+    var photoQuality: PhotoQuality = .medium
+    private var captureStarted: Date?
     @Published var buttonReady = false
     @Published var lines: [String] = []
     @Published var deviceInfo = "no glasses seen yet"
@@ -227,8 +231,17 @@ final class GlassesController: ObservableObject {
         photo.photoDataPublisher.listen { [weak self] data in
             Task { @MainActor in
                 guard let self else { return }
-                self.log("photo arrived: \(data.imageData.count) bytes")
+                let took = self.captureStarted.map { String(format: " in %.1f s", Date().timeIntervalSince($0)) } ?? ""
+                self.log("photo arrived: \(data.imageData.count) bytes\(took)")
                 self.onPhoto?(data.imageData)
+            }
+        }.store(in: tokens)
+
+        photo.transferProgressPublisher.listen { [weak self] progress in
+            Task { @MainActor in
+                guard let self else { return }
+                let pct = Int(progress.fraction * 100)
+                if pct == 0 || pct == 50 { self.log("photo transfer: \(progress.bytesReceived / 1024)/\(progress.totalBytes / 1024) KB") }
             }
         }.store(in: tokens)
 
@@ -318,8 +331,9 @@ final class GlassesController: ObservableObject {
             log("capture asked, but the shutter is not ready")
             return
         }
-        log("capture (\(mode.rawValue))")
+        log("capture (\(mode.rawValue)), \(photoResolution.rawValue)/\(photoQuality.rawValue)")
         onCapture?(mode)
-        camera.photo.capturePhoto(resolution: .large, quality: .high)
+        captureStarted = Date()
+        camera.photo.capturePhoto(resolution: photoResolution, quality: photoQuality)
     }
 }

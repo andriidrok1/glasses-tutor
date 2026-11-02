@@ -52,7 +52,9 @@ enum Tutor {
     static let twoImagesNote = """
     You receive two images. Image 1 is a zoomed, full-resolution crop of the text block found in the photo: \
     read the problem from it. Image 2 is the whole photo for context only: use it to see a pointer \
-    (cursor, fingertip, pen) and which question it marks.
+    (cursor, fingertip, pen) and which question it marks. If part of the problem (for example the matrix) \
+    is missing from image 1, read it from image 2 and say in the transcription that it came from the \
+    small image; if a digit there is ambiguous, say which one.
     """
 
     static func prompt(for mode: TutorMode, language: Language) -> String {

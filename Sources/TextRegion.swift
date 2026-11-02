@@ -63,12 +63,36 @@ enum TextRegion {
         }
         guard let best = totals.values.max(by: { $0.chars < $1.chars }) else { return nil }
 
-        // Breathe a little around the block so matrix brackets and margins are not clipped.
-        let margin = max(24, min(best.rect.width, best.rect.height) * 0.08)
-        let padded = best.rect.insetBy(dx: -margin, dy: -margin)
+        // The options form the densest cluster, but the statement above them (matrix, "Let A =")
+        // sits further away and often comes out as short fragments. Grow the block column-wise:
+        // absorb lines that overlap it horizontally and lie within six line heights, repeat
+        // until nothing changes. Browser chrome and key caps stay out: they are further away.
+        let lineHeight = lines.map(\.rect.height).sorted()[lines.count / 2]
+        var block = best.rect
+        var count = best.count
+        var absorbed = Set<Int>()
+        var changed = true
+        while changed {
+            changed = false
+            let reach = block.insetBy(dx: -lineHeight * 4, dy: -lineHeight * 6)
+            for (i, line) in lines.enumerated() where !absorbed.contains(i) && !block.contains(line.rect) {
+                guard reach.intersects(line.rect),
+                      line.rect.maxX > block.minX - lineHeight * 4, line.rect.minX < block.maxX + lineHeight * 4
+                else { continue }
+                block = block.union(line.rect)
+                absorbed.insert(i)
+                count += 1
+                changed = true
+            }
+        }
+
+        // Breathe around the block: matrices are taller than their text line and brackets
+        // stick out past the recognized box.
+        let margin = max(24, lineHeight * 2.5)
+        let padded = block.insetBy(dx: -margin, dy: -margin)
             .intersection(CGRect(x: 0, y: 0, width: w, height: h))
             .integral
         guard padded.width > 40, padded.height > 20, let cropped = cg.cropping(to: padded) else { return nil }
-        return Match(crop: UIImage(cgImage: cropped), rect: padded, lines: best.count)
+        return Match(crop: UIImage(cgImage: cropped), rect: padded, lines: count)
     }
 }
