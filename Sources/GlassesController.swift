@@ -49,6 +49,8 @@ final class GlassesController: ObservableObject {
     private var sessionTokens = ListenerTokenBag()
     private var sessionTasks: [Task<Void, Never>] = []
     private var lastDoublePress: Date?
+    /// One automatic retake after the glasses report a capture timeout.
+    private var retried = false
     private var photoStartRequested = false
     private var streamReleased = false
     private var watchedDevices: Set<UUID> = []
@@ -248,6 +250,7 @@ final class GlassesController: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.photoInFlight = false
+                self.retried = false
                 let took = self.captureStarted.map { String(format: " in %.1f s", Date().timeIntervalSince($0)) } ?? ""
                 self.log("photo arrived: \(data.imageData.count) bytes\(took)")
                 self.onPhoto?(data.imageData)
@@ -264,8 +267,14 @@ final class GlassesController: ObservableObject {
 
         photo.errorPublisher.listen { [weak self] error in
             Task { @MainActor in
-                self?.photoInFlight = false
-                self?.log("photo error: \(error)")
+                guard let self else { return }
+                self.photoInFlight = false
+                self.log("photo error: \(error)")
+                if case .captureFailure = error, !self.retried, self.shutterReady {
+                    self.retried = true
+                    self.log("retaking once")
+                    self.capture(mode: .check)
+                }
             }
         }.store(in: sessionTokens)
 
