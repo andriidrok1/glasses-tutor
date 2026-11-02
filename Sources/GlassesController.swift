@@ -37,6 +37,8 @@ final class GlassesController: ObservableObject {
     private var photoStartRequested = false
     private var streamReleased = false
     private var watchedDevices: Set<UUID> = []
+    /// Identifier of the glasses that are currently linked and compatible.
+    private var readyDevice: DeviceIdentifier?
 
     func log(_ s: String) {
         let stamp = Self.clock.string(from: Date())
@@ -90,9 +92,14 @@ final class GlassesController: ObservableObject {
                 let line = self.describe(device, state)
                 self.deviceInfo = line
                 self.log("device: \(line)")
-                if state.linkState == .connected, state.compatibility == .compatible, self.session == nil {
-                    self.log("glasses connected and compatible, starting session")
-                    self.connect()
+                if state.linkState == .connected, state.compatibility == .compatible {
+                    self.readyDevice = device.identifier
+                    if self.session == nil {
+                        self.log("glasses connected and compatible, starting session")
+                        self.connect()
+                    }
+                } else if state.linkState == .disconnected {
+                    self.readyDevice = nil
                 }
             }
         }.store(in: tokens)
@@ -129,8 +136,15 @@ final class GlassesController: ObservableObject {
     func connect() {
         guard session == nil else { return }
         let wearables = Wearables.shared
+        // AutoDeviceSelector picks a device asynchronously; used right after creation it has
+        // nothing selected and createSession throws noEligibleDevice. Meta's samples name the
+        // device explicitly, so do the same with the glasses we have already seen.
+        guard let id = readyDevice ?? wearables.devices.first else {
+            log("no glasses in the device list yet, will start when they appear")
+            return
+        }
         do {
-            let s = try wearables.createSession(deviceSelector: AutoDeviceSelector(wearables: wearables))
+            let s = try wearables.createSession(deviceSelector: SpecificDeviceSelector(device: id))
             session = s
             tasks.append(Task { [weak self] in
                 for await state in s.stateStream() {
@@ -180,6 +194,10 @@ final class GlassesController: ObservableObject {
 
     private func attachCamera(_ s: DeviceSession) {
         guard camera == nil else { return }
+        Task { [weak self] in
+            let status = try? await Wearables.shared.checkPermissionStatus(.camera)
+            await MainActor.run { self?.log("camera permission status: \(status.map { String(describing: $0) } ?? "unreadable")") }
+        }
         // Smallest stream the SDK sells: its only job is to wake the sensor.
         let config = StreamConfiguration(videoCodec: .hvc1, resolution: .low, frameRate: 7)
         guard let cam = try? s.addCamera(config: config) else {
