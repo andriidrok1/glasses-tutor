@@ -24,6 +24,10 @@ final class GlassesController: ObservableObject {
     var photoResolution: PhotoResolution = .full
     var photoQuality: PhotoQuality = .medium
     private var captureStarted: Date?
+    /// The glasses report a double press as short, short, double. A short press therefore
+    /// waits a moment and is dropped when another press follows.
+    private var pendingCapture: Task<Void, Never>?
+    private var photoInFlight = false
     @Published var buttonReady = false
     @Published var lines: [String] = []
     @Published var deviceInfo = "no glasses seen yet"
@@ -234,6 +238,7 @@ final class GlassesController: ObservableObject {
         photo.photoDataPublisher.listen { [weak self] data in
             Task { @MainActor in
                 guard let self else { return }
+                self.photoInFlight = false
                 let took = self.captureStarted.map { String(format: " in %.1f s", Date().timeIntervalSince($0)) } ?? ""
                 self.log("photo arrived: \(data.imageData.count) bytes\(took)")
                 self.onPhoto?(data.imageData)
@@ -249,7 +254,10 @@ final class GlassesController: ObservableObject {
         }.store(in: tokens)
 
         photo.errorPublisher.listen { [weak self] error in
-            Task { @MainActor in self?.log("photo error: \(error)") }
+            Task { @MainActor in
+                self?.photoInFlight = false
+                self?.log("photo error: \(error)")
+            }
         }.store(in: tokens)
 
         cam.statePublisher.listen { [weak self] state in
@@ -320,8 +328,17 @@ final class GlassesController: ObservableObject {
         case let .capture(pressType, source, _):
             guard source == .captureButton else { return }
             switch pressType {
-            case .shortPress: capture(mode: .check)
+            case .shortPress:
+                pendingCapture?.cancel()
+                pendingCapture = Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    guard !Task.isCancelled, let self else { return }
+                    self.pendingCapture = nil
+                    self.capture(mode: .check)
+                }
             case .doublePress:
+                pendingCapture?.cancel()
+                pendingCapture = nil
                 log("double press: play/pause")
                 onPlay?()
             default: break
@@ -336,9 +353,14 @@ final class GlassesController: ObservableObject {
             log("capture asked, but the shutter is not ready")
             return
         }
+        if photoInFlight, let started = captureStarted, Date().timeIntervalSince(started) < 40 {
+            log("capture asked while the previous photo is still on its way, ignored")
+            return
+        }
         log("capture (\(mode.rawValue)), \(photoResolution.rawValue)/\(photoQuality.rawValue)")
         onCapture?(mode)
         captureStarted = Date()
+        photoInFlight = true
         camera.photo.capturePhoto(resolution: photoResolution, quality: photoQuality)
     }
 }
