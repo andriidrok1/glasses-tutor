@@ -26,7 +26,7 @@ final class AppModel: ObservableObject {
     enum ImageMode: String, CaseIterable, Identifiable {
         case full, crop
         var id: String { rawValue }
-        var title: String { self == .full ? "Full photo" : "Text crop + frame" }
+        var title: String { self == .full ? "Full photo" : "Page scan + frame" }
     }
     @Published var imageMode: ImageMode {
         didSet { UserDefaults.standard.set(imageMode.rawValue, forKey: "imageMode") }
@@ -66,7 +66,7 @@ final class AppModel: ObservableObject {
         photoResolution = PhotoResolution(rawValue: d.string(forKey: "photoResolution") ?? "") ?? .full
         photoQuality = PhotoQuality(rawValue: d.string(forKey: "photoQuality") ?? "") ?? .medium
         autoPlay = d.object(forKey: "autoPlay") as? Bool ?? false
-        imageMode = ImageMode(rawValue: d.string(forKey: "imageMode") ?? "") ?? .full
+        imageMode = ImageMode(rawValue: d.string(forKey: "imageMode") ?? "") ?? .crop
         debugURL = d.string(forKey: "debugURL") ?? ""
         glasses.photoResolution = photoResolution
         glasses.photoQuality = photoQuality
@@ -132,7 +132,8 @@ final class AppModel: ObservableObject {
             images.insert(zoom, at: 0)
             lastPhoto = match.crop
             DebugSink.photo("zoom", zoom)
-            info += "; text block \(match.lines) lines \(Int(match.rect.width))x\(Int(match.rect.height)) → zoom \(zoom.count / 1024) KB"
+            let z = UIImage(data: zoom).map { "\(Int($0.size.width))x\(Int($0.size.height))" } ?? "?"
+            info += "; \(match.kind)\(match.lines > 0 ? " \(match.lines) lines" : "") at \(Int(match.rect.width))x\(Int(match.rect.height)) → zoom \(z) \(zoom.count / 1024) KB"
             savePhoto(zoom, suffix: "-zoom")
         } else {
             lastPhoto = upright

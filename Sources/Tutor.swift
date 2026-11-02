@@ -67,7 +67,7 @@ enum Tutor {
 
     /// Prefix used when the request carries a zoomed crop plus the full frame.
     static let twoImagesNote = """
-    You receive two images. Image 1 is a zoomed, full-resolution crop of the text block found in the photo: \
+    You receive two images. Image 1 is the page or screen found in the photo, flattened and at full resolution: \
     read the problem from it. Image 2 is the whole photo for context only: use it to see a pointer \
     (cursor, fingertip, pen) and which question it marks. If part of the problem (for example the matrix) \
     is missing from image 1, read it from image 2 and say in the transcription that it came from the \
@@ -88,7 +88,8 @@ enum Tutor {
         even if the question says no calculation is needed. \
         Step 4: for multiple choice, pick the option whose justification is a theorem statement or an equivalent, \
         not a superficial property; the same option texts appear in a different order under each question, so read each one. \
-        Finish with one final line that starts with ANSWER: and the question number; only that line is read aloud. \
+        Finish with one final line that starts with ANSWER: and the question number as printed, or the part letter \
+        when there is no number (ANSWER: part c ...); only that line is read aloud. \
         Rule: if the student wrote nothing for the target, solve it and give the answer: \
         ANSWER: 1 A, or for an open question ANSWER: 1 <final value in the spoken format>. \
         If the student's work is there and right: ANSWER: 1 CORRECT. \

@@ -1,3 +1,4 @@
+import CoreImage
 import Foundation
 import UIKit
 import Vision
@@ -10,11 +11,45 @@ enum TextRegion {
     struct Match {
         let crop: UIImage
         let rect: CGRect      // pixel rect inside the upright source image
-        let lines: Int        // text lines that formed the block
+        let lines: Int        // text lines that formed the block (0 for a document scan)
+        let kind: String      // "document" or "text block"
     }
 
     /// `image` must be upright (orientation .up, scale 1); see `Tutor.upright`.
+    /// A sheet of paper or a screen is found first and flattened like a document scan;
+    /// when nothing document-like is there, the densest block of text lines is cropped.
     static func find(in image: UIImage) -> Match? {
+        if let doc = document(in: image) { return doc }
+        return textBlock(in: image)
+    }
+
+    /// Document segmentation + perspective correction: the page comes out flat and upright,
+    /// which is what the model reads best, and the room around it is gone.
+    private static func document(in image: UIImage) -> Match? {
+        guard let cg = image.cgImage else { return nil }
+        let request = VNDetectDocumentSegmentationRequest()
+        let handler = VNImageRequestHandler(cgImage: cg, orientation: .up, options: [:])
+        do { try handler.perform([request]) } catch { return nil }
+        guard let obs = request.results?.max(by: { $0.confidence < $1.confidence }), obs.confidence >= 0.5 else { return nil }
+        let w = CGFloat(cg.width), h = CGFloat(cg.height)
+        let box = obs.boundingBox
+        // Too small to be the page we are after, or the whole frame (then nothing is gained).
+        guard box.width * box.height >= 0.04, box.width * box.height <= 0.97 else { return nil }
+        let ci = CIImage(cgImage: cg)
+        func point(_ p: CGPoint) -> CIVector { CIVector(x: p.x * w, y: p.y * h) }   // Vision and Core Image share the bottom-left origin
+        guard let filter = CIFilter(name: "CIPerspectiveCorrection") else { return nil }
+        filter.setValue(ci, forKey: kCIInputImageKey)
+        filter.setValue(point(obs.topLeft), forKey: "inputTopLeft")
+        filter.setValue(point(obs.topRight), forKey: "inputTopRight")
+        filter.setValue(point(obs.bottomLeft), forKey: "inputBottomLeft")
+        filter.setValue(point(obs.bottomRight), forKey: "inputBottomRight")
+        guard let out = filter.outputImage, out.extent.width > 200, out.extent.height > 200,
+              let flat = CIContext().createCGImage(out, from: out.extent) else { return nil }
+        let rect = CGRect(x: box.minX * w, y: (1 - box.maxY) * h, width: box.width * w, height: box.height * h).integral
+        return Match(crop: UIImage(cgImage: flat), rect: rect, lines: 0, kind: "document \(Int(obs.confidence * 100))%")
+    }
+
+    private static func textBlock(in image: UIImage) -> Match? {
         guard let cg = image.cgImage else { return nil }
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .fast
@@ -93,6 +128,6 @@ enum TextRegion {
             .intersection(CGRect(x: 0, y: 0, width: w, height: h))
             .integral
         guard padded.width > 40, padded.height > 20, let cropped = cg.cropping(to: padded) else { return nil }
-        return Match(crop: UIImage(cgImage: cropped), rect: padded, lines: count)
+        return Match(crop: UIImage(cgImage: cropped), rect: padded, lines: count, kind: "text block")
     }
 }
