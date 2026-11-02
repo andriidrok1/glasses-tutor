@@ -21,6 +21,13 @@ enum Tutor {
         }
     }
 
+    /// The part that gets spoken: the text after the last "ANSWER:" marker, or the whole reply.
+    static func spokenPart(of text: String) -> String {
+        guard let range = text.range(of: "ANSWER:", options: [.backwards, .caseInsensitive]) else { return text }
+        let tail = text[range.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
+        return tail.isEmpty ? text : tail
+    }
+
     struct APIError: LocalizedError {
         let message: String
         var errorDescription: String? { message }
@@ -45,12 +52,18 @@ enum Tutor {
         switch mode {
         case .check:
             body = """
-            The photo shows a math problem, on paper or on a screen. Be as brief as possible. \
-            Multiple-choice question: reply with the correct letter only, nothing else. \
-            Several multiple-choice questions visible: reply with each number and its letter, like "1 E, 2 F". \
-            If a student's handwritten answer is visible: reply with the single word CORRECT or INCORRECT, \
-            then at most one short sentence why. \
-            Open question with no student answer: give only the final answer in one short sentence.
+            The photo shows a math problem, on paper or on a screen. Work in this order. \\
+            Step 1: transcribe the question and every answer option exactly as printed, one per line, \\
+            including the matrix entries. This transcription is for verification. \\
+            Step 2: verify by actually computing (determinant, pivots, row reduction), even if the question says \\
+            no calculation is needed. \\
+            Step 3: for multiple choice, pick the option whose justification is a statement of the Invertible Matrix \\
+            Theorem or an equivalent, not a superficial property; the same option texts appear in a different order \\
+            under each question, so read each one. \\
+            Finish with one final line in exactly this form: ANSWER: <letter>. For several visible questions: \\
+            ANSWER: 1 E, 2 F. If a student's handwritten answer is visible instead: ANSWER: CORRECT or ANSWER: INCORRECT, \\
+            followed by at most one short sentence. For an open question: ANSWER: <final value>. \\
+            Only the ANSWER line is read aloud, so put nothing after it.
             """
         case .solve:
             body = """

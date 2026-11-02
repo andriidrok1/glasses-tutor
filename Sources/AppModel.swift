@@ -83,8 +83,9 @@ final class AppModel: ObservableObject {
                 provider: provider, model: effectiveModel, apiKey: apiKey
             )
             lastAnswer = text
-            glasses.log("answer: \(text)")
-            speaker.speak(text, language: language.voice)
+            let spoken = Tutor.spokenPart(of: text)
+            glasses.log("answer: \(spoken)")
+            speaker.speak(spoken, language: language.voice)
         } catch {
             lastAnswer = "Error: \(error.localizedDescription)"
             glasses.log("api error: \(error)")
