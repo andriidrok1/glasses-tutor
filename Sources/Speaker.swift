@@ -11,6 +11,8 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
     var hasPending: Bool { pending != nil }
     /// Diagnostics go to the app log.
     var log: ((String) -> Void)?
+    /// Set by the didContinue callback; a resume that never reports back is restarted.
+    private var continued = false
 
     override init() {
         super.init()
@@ -73,7 +75,14 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
             return "play"
         }
         if synthesizer.isPaused {
+            activate()
+            continued = false
             synthesizer.continueSpeaking()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+                guard let self, !self.continued, let last = self.last else { return }
+                self.log?("resume did not take, restarting the answer")
+                self.speak(last.text, language: last.language)
+            }
             return "resume"
         }
         if synthesizer.isSpeaking {
@@ -97,5 +106,5 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) { log?("speech finished") }
     func speechSynthesizer(_ s: AVSpeechSynthesizer, didCancel u: AVSpeechUtterance) { log?("speech cancelled") }
     func speechSynthesizer(_ s: AVSpeechSynthesizer, didPause u: AVSpeechUtterance) { log?("speech paused") }
-    func speechSynthesizer(_ s: AVSpeechSynthesizer, didContinue u: AVSpeechUtterance) { log?("speech continued") }
+    func speechSynthesizer(_ s: AVSpeechSynthesizer, didContinue u: AVSpeechUtterance) { continued = true; log?("speech continued") }
 }
