@@ -44,7 +44,15 @@ enum Tutor {
     not being augmented. \
     Reply in plain English prose only: no markdown, no LaTeX, no bullet symbols. \
     Write every formula in words or simple ASCII so a text-to-speech engine can read it aloud. \
-    If the photo is unreadable, say exactly: Photo unreadable, try again.
+    The text is often small or photographed at an angle; read it carefully before giving up. \
+    Say exactly "Photo unreadable, try again." only when the numbers cannot be made out even in the zoomed image.
+    """
+
+    /// Prefix used when the request carries a zoomed crop plus the full frame.
+    static let twoImagesNote = """
+    You receive two images. Image 1 is a zoomed, full-resolution crop of the text block found in the photo: \
+    read the problem from it. Image 2 is the whole photo for context only: use it to see a pointer \
+    (cursor, fingertip, pen) and which question it marks.
     """
 
     static func prompt(for mode: TutorMode, language: Language) -> String {
@@ -52,20 +60,20 @@ enum Tutor {
         switch mode {
         case .check:
             body = """
-            The photo shows one or more math problems, on paper or on a screen. Work in this order. \\
-            Step 1: look for a pointer: a mouse cursor on a screen, a fingertip, a pen tip, or a highlight. \\
-            If a pointer is visible, the target is the single question it points at or is nearest to; ignore the others. \\
-            If there is no pointer, the targets are all fully visible questions. \\
+            The photo shows one or more math problems, on paper or on a screen. Work in this order. \
+            Step 1: look for a pointer: a mouse cursor on a screen, a fingertip, a pen tip, or a highlight. \
+            If a pointer is visible, the target is the single question it points at or is nearest to; ignore the others. \
+            If there is no pointer, the targets are all fully visible questions. \
             Step 2: transcribe each target question and every one of its answer options exactly as printed, one per line, \\
-            including matrix entries. This transcription is for verification. \\
+            including matrix entries. This transcription is for verification. \
             Step 3: verify by actually computing (determinant, pivots, row reduction), even if the question says \\
-            no calculation is needed. \\
+            no calculation is needed. \
             Step 4: for multiple choice, pick the option whose justification is a statement of the Invertible Matrix \\
             Theorem or an equivalent, not a superficial property; the same option texts appear in a different order \\
-            under each question, so read each one. \\
-            Finish with one final line in exactly this form, always with the question number: ANSWER: 6 E. \\
+            under each question, so read each one. \
+            Finish with one final line in exactly this form, always with the question number: ANSWER: 6 E. \
             Several targets: ANSWER: 5 D, 6 E. If a student's handwritten answer is visible instead: \\
-            ANSWER: 6 CORRECT or ANSWER: 6 INCORRECT, followed by at most one short sentence. \\
+            ANSWER: 6 CORRECT or ANSWER: 6 INCORRECT, followed by at most one short sentence. \
             Open question: ANSWER: 6 <final value>. Only the ANSWER line is read aloud, so put nothing after it.
             """
         case .solve:
@@ -81,34 +89,51 @@ enum Tutor {
         return body + " " + language.instruction
     }
 
-    /// Make sure the model gets a JPEG no wider than 1600 px. The glasses already send a
-    /// compressed image; if it is a JPEG and already small enough it goes through untouched.
-    static func normalize(_ data: Data) -> Data {
-        let isJPEG = data.count > 2 && data[data.startIndex] == 0xFF && data[data.startIndex + 1] == 0xD8
-        guard let image = UIImage(data: data) else { return data }
-        let maxSide: CGFloat = 1600
+    /// Decodes the photo into an upright, scale-1 UIImage so Vision boxes and crops share one
+    /// pixel coordinate system.
+    static func upright(_ data: Data) -> UIImage? {
+        guard let image = UIImage(data: data) else { return nil }
+        let size = CGSize(width: (image.size.width * image.scale).rounded(), height: (image.size.height * image.scale).rounded())
+        if image.imageOrientation == .up, image.scale == 1 { return image }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+    }
+
+    /// JPEG with the longest side clamped to [minSide, maxSide]. Small crops are upscaled on
+    /// purpose: vision models read 1200 px of text more reliably than 400 px of it.
+    static func jpeg(_ image: UIImage, minSide: CGFloat = 0, maxSide: CGFloat, quality: CGFloat = 0.88) -> Data? {
         let pixelW = image.size.width * image.scale
         let pixelH = image.size.height * image.scale
         let longest = max(pixelW, pixelH)
-        if isJPEG && longest <= maxSide { return data }
-        let scale = longest > maxSide ? maxSide / longest : 1
+        var scale: CGFloat = 1
+        if longest > maxSide { scale = maxSide / longest } else if longest < minSide { scale = minSide / longest }
+        if scale == 1, image.scale == 1, image.imageOrientation == .up { return image.jpegData(compressionQuality: quality) }
         let size = CGSize(width: (pixelW * scale).rounded(), height: (pixelH * scale).rounded())
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1   // pixel size == point size; the default would use the screen's 3x
-        let renderer = UIGraphicsImageRenderer(size: size, format: format)
-        let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
-        return resized.jpegData(compressionQuality: 0.85) ?? data
+        let resized = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            ctx.cgContext.interpolationQuality = .high
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+        return resized.jpegData(compressionQuality: quality)
     }
 
-    static func ask(image: Data, mode: TutorMode, language: Language, provider: Provider, model: String, apiKey: String) async throws -> String {
-        let prompt = prompt(for: mode, language: language)
+    /// `images`: either [full frame] or [zoomed text crop, full frame].
+    static func ask(images: [Data], mode: TutorMode, language: Language, provider: Provider, model: String, apiKey: String) async throws -> String {
+        var prompt = prompt(for: mode, language: language)
+        if images.count == 2 { prompt = twoImagesNote + " " + prompt }
         switch provider {
-        case .openai: return try await askOpenAI(image: image, prompt: prompt, model: model, apiKey: apiKey)
-        case .anthropic: return try await askAnthropic(image: image, prompt: prompt, model: model, apiKey: apiKey)
+        case .openai: return try await askOpenAI(images: images, prompt: prompt, model: model, apiKey: apiKey)
+        case .anthropic: return try await askAnthropic(images: images, prompt: prompt, model: model, apiKey: apiKey)
         }
     }
 
-    private static func askOpenAI(image: Data, prompt: String, model: String, apiKey: String) async throws -> String {
+    private static func askOpenAI(images: [Data], prompt: String, model: String, apiKey: String) async throws -> String {
+        var content: [[String: Any]] = [["type": "text", "text": prompt]]
+        for image in images {
+            content.append(["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + image.base64EncodedString(), "detail": "high"]])
+        }
         var body: [String: Any] = [
             "model": model,
             // Reasoning models (gpt-5 family) spend completion tokens on thinking first;
@@ -116,15 +141,12 @@ enum Tutor {
             "max_completion_tokens": 4000,
             "messages": [
                 ["role": "system", "content": system],
-                ["role": "user", "content": [
-                    ["type": "text", "text": prompt],
-                    ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + image.base64EncodedString(), "detail": "high"]],
-                ]],
+                ["role": "user", "content": content],
             ],
         ]
         let lower = model.lowercased()
         if lower.hasPrefix("gpt-5") || lower.hasPrefix("o1") || lower.hasPrefix("o3") || lower.hasPrefix("o4") {
-            body["reasoning_effort"] = "low"
+            body["reasoning_effort"] = "medium"
         }
         var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
         request.httpMethod = "POST"
@@ -149,16 +171,17 @@ enum Tutor {
         return content
     }
 
-    private static func askAnthropic(image: Data, prompt: String, model: String, apiKey: String) async throws -> String {
+    private static func askAnthropic(images: [Data], prompt: String, model: String, apiKey: String) async throws -> String {
+        var content: [[String: Any]] = images.map {
+            ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": $0.base64EncodedString()]]
+        }
+        content.append(["type": "text", "text": prompt])
         let body: [String: Any] = [
             "model": model,
             "max_tokens": 1000,
             "system": system,
             "messages": [
-                ["role": "user", "content": [
-                    ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": image.base64EncodedString()]],
-                    ["type": "text", "text": prompt],
-                ]],
+                ["role": "user", "content": content],
             ],
         ]
         var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)

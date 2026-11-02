@@ -50,12 +50,12 @@ final class AppModel: ObservableObject {
     }
 
     /// Keeps the last few photos in Documents/, visible in the Files app under Glasses Tutor.
-    private func savePhoto(_ data: Data) {
+    private func savePhoto(_ data: Data, suffix: String = "") {
         guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
         let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        try? data.write(to: dir.appendingPathComponent("photo-\(stamp).jpg"))
+        try? data.write(to: dir.appendingPathComponent("photo-\(stamp)\(suffix).jpg"))
         if let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
-            for old in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }).dropLast(10) {
+            for old in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }).dropLast(20) {
                 try? FileManager.default.removeItem(at: old)
             }
         }
@@ -69,17 +69,33 @@ final class AppModel: ObservableObject {
         }
         busy = true
         defer { busy = false }
-        let jpeg = Tutor.normalize(raw)
-        let image = UIImage(data: jpeg)
-        lastPhoto = image
-        let dims = image.map { "\(Int($0.size.width * $0.scale))x\(Int($0.size.height * $0.scale))" } ?? "undecodable"
-        lastPhotoInfo = "raw \(raw.count / 1024) KB → jpeg \(jpeg.count / 1024) KB, \(dims)"
-        glasses.log("photo: \(lastPhotoInfo)")
-        savePhoto(jpeg)
+        guard let upright = Tutor.upright(raw) else {
+            lastAnswer = "Photo could not be decoded (\(raw.count) bytes)."
+            glasses.log(lastAnswer)
+            return
+        }
+        let rawDims = "\(Int(upright.size.width))x\(Int(upright.size.height))"
+        // Full frame for context (pointer, which question), zoomed text block for reading.
+        let full = Tutor.jpeg(upright, maxSide: 1600, quality: 0.8) ?? raw
+        var images = [full]
+        var info = "raw \(raw.count / 1024) KB \(rawDims) → full \(full.count / 1024) KB"
+        let match = await Task.detached(priority: .userInitiated) { TextRegion.find(in: upright) }.value
+        if let match, let zoom = Tutor.jpeg(match.crop, minSide: 1400, maxSide: 2000) {
+            images.insert(zoom, at: 0)
+            lastPhoto = match.crop
+            info += "; text block \(match.lines) lines \(Int(match.rect.width))x\(Int(match.rect.height)) → zoom \(zoom.count / 1024) KB"
+            savePhoto(zoom, suffix: "-zoom")
+        } else {
+            lastPhoto = upright
+            info += "; no text block found, sending full frame"
+        }
+        lastPhotoInfo = info
+        glasses.log("photo: \(info)")
+        savePhoto(full)
         let effectiveModel = model.isEmpty ? provider.defaultModel : model
         do {
             let text = try await Tutor.ask(
-                image: jpeg, mode: pendingMode, language: language,
+                images: images, mode: pendingMode, language: language,
                 provider: provider, model: effectiveModel, apiKey: apiKey
             )
             lastAnswer = text
