@@ -47,6 +47,8 @@ struct ContentView: View {
                 Section("Test without the button") {
                     Button("Capture (single press)") { model.glasses.capture(mode: .check) }
                     Button("Play / pause / repeat (double press)") { model.glasses.log("play: \(model.speaker.togglePause())") }
+                    Button("Forget earlier photos (\(model.history.count) remembered)") { model.forgetHistory() }
+                        .disabled(model.history.isEmpty)
                     Button("Say test phrase") {
                         model.speaker.speak(model.language == .russian ? "Проверка звука. Верно." : "Audio route test. Correct.", language: model.language.voice)
                     }

@@ -52,6 +52,19 @@ enum Tutor {
     Say exactly "Photo unreadable, try again." only when the numbers cannot be made out even in the zoomed image.
     """
 
+    /// One earlier capture, replayed before the current one so a problem that spans two
+    /// pages (statement on one, question on the next) is still seen whole.
+    struct Turn {
+        let images: [Data]
+        let reply: String
+        let date: Date
+    }
+
+    static let memoryNote = """
+    Earlier photos from the same session come first, with the replies given for them. They may hold the \
+    statement, matrix or definitions for the question on the latest photo; use them. Answer only the latest photo.
+    """
+
     /// Prefix used when the request carries a zoomed crop plus the full frame.
     static let twoImagesNote = """
     You receive two images. Image 1 is a zoomed, full-resolution crop of the text block found in the photo: \
@@ -117,29 +130,32 @@ enum Tutor {
     }
 
     /// `images`: either [full frame] or [zoomed text crop, full frame].
-    static func ask(images: [Data], mode: TutorMode, language: Language, provider: Provider, model: String, apiKey: String) async throws -> String {
+    static func ask(images: [Data], history: [Turn] = [], mode: TutorMode, language: Language, provider: Provider, model: String, apiKey: String) async throws -> String {
         var prompt = prompt(for: mode, language: language)
         if images.count == 2 { prompt = twoImagesNote + " " + prompt }
+        if !history.isEmpty { prompt = memoryNote + " " + prompt }
         switch provider {
-        case .openai: return try await askOpenAI(images: images, prompt: prompt, model: model, apiKey: apiKey)
-        case .anthropic: return try await askAnthropic(images: images, prompt: prompt, model: model, apiKey: apiKey)
+        case .openai: return try await askOpenAI(images: images, history: history, prompt: prompt, model: model, apiKey: apiKey)
+        case .anthropic: return try await askAnthropic(images: images, history: history, prompt: prompt, model: model, apiKey: apiKey)
         }
     }
 
-    private static func askOpenAI(images: [Data], prompt: String, model: String, apiKey: String) async throws -> String {
-        var parts: [[String: Any]] = [["type": "text", "text": prompt]]
-        for image in images {
-            parts.append(["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + image.base64EncodedString(), "detail": "high"]])
+    private static func askOpenAI(images: [Data], history: [Turn], prompt: String, model: String, apiKey: String) async throws -> String {
+        func imagePart(_ image: Data) -> [String: Any] {
+            ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + image.base64EncodedString(), "detail": "high"]]
         }
+        var messages: [[String: Any]] = [["role": "system", "content": system]]
+        for (i, turn) in history.enumerated() {
+            messages.append(["role": "user", "content": [["type": "text", "text": "Earlier photo \(i + 1)."]] + turn.images.map(imagePart)])
+            messages.append(["role": "assistant", "content": turn.reply])
+        }
+        messages.append(["role": "user", "content": [["type": "text", "text": prompt]] + images.map(imagePart)])
         var body: [String: Any] = [
             "model": model,
             // Reasoning models (gpt-5 family) spend completion tokens on thinking first;
             // a small budget leaves nothing for the visible answer.
             "max_completion_tokens": 4000,
-            "messages": [
-                ["role": "system", "content": system],
-                ["role": "user", "content": parts],
-            ],
+            "messages": messages,
         ]
         let lower = model.lowercased()
         if lower.hasPrefix("gpt-5") || lower.hasPrefix("o1") || lower.hasPrefix("o3") || lower.hasPrefix("o4") {
@@ -168,18 +184,21 @@ enum Tutor {
         return content
     }
 
-    private static func askAnthropic(images: [Data], prompt: String, model: String, apiKey: String) async throws -> String {
-        var content: [[String: Any]] = images.map {
-            ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": $0.base64EncodedString()]]
+    private static func askAnthropic(images: [Data], history: [Turn], prompt: String, model: String, apiKey: String) async throws -> String {
+        func imagePart(_ image: Data) -> [String: Any] {
+            ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": image.base64EncodedString()]]
         }
-        content.append(["type": "text", "text": prompt])
+        var messages: [[String: Any]] = []
+        for (i, turn) in history.enumerated() {
+            messages.append(["role": "user", "content": turn.images.map(imagePart) + [["type": "text", "text": "Earlier photo \(i + 1)."]]])
+            messages.append(["role": "assistant", "content": turn.reply])
+        }
+        messages.append(["role": "user", "content": images.map(imagePart) + [["type": "text", "text": prompt]]])
         let body: [String: Any] = [
             "model": model,
             "max_tokens": 1000,
             "system": system,
-            "messages": [
-                ["role": "user", "content": content],
-            ],
+            "messages": messages,
         ]
         var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
         request.httpMethod = "POST"

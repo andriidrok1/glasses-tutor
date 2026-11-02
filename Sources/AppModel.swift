@@ -38,6 +38,15 @@ final class AppModel: ObservableObject {
     let glasses = GlassesController()
     let speaker = Speaker()
     private var pendingMode: TutorMode = .check
+    /// Earlier captures replayed with the next request (a problem split over two pages).
+    @Published private(set) var history: [Tutor.Turn] = []
+    private let memoryLimit = 3
+    private let memoryAge: TimeInterval = 20 * 60
+
+    func forgetHistory() {
+        history.removeAll()
+        glasses.log("memory cleared")
+    }
     private var cancellables: Set<AnyCancellable> = []
 
     init() {
@@ -120,11 +129,16 @@ final class AppModel: ObservableObject {
         savePhoto(full)
         DebugSink.photo("full", full)
         let effectiveModel = model.isEmpty ? provider.defaultModel : model
+        history.removeAll { Date().timeIntervalSince($0.date) > memoryAge }
+        if !history.isEmpty { glasses.log("memory: \(history.count) earlier photo(s) attached") }
         do {
             let text = try await Tutor.ask(
-                images: images, mode: pendingMode, language: language,
+                images: images, history: history, mode: pendingMode, language: language,
                 provider: provider, model: effectiveModel, apiKey: apiKey
             )
+            // Keep only the zoomed crop of this capture for later turns: it carries the text.
+            history.append(Tutor.Turn(images: [images[0]], reply: text, date: Date()))
+            if history.count > memoryLimit { history.removeFirst(history.count - memoryLimit) }
             lastAnswer = text
             DebugSink.text("reply", text)
             let spoken = Tutor.spokenPart(of: text)
