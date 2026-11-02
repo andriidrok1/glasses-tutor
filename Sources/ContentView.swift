@@ -37,6 +37,9 @@ struct ContentView: View {
                     Picker("Photo quality", selection: $model.photoQuality) {
                         ForEach(PhotoQuality.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
+                    Picker("Image sent", selection: $model.imageMode) {
+                        ForEach(AppModel.ImageMode.allCases) { Text($0.title).tag($0) }
+                    }
                     Toggle("Speak answer immediately (off = chime, tap to play)", isOn: $model.autoPlay)
                     TextField("Debug server URL (empty = off)", text: $model.debugURL)
                         .textInputAutocapitalization(.never)

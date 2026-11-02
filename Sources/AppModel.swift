@@ -23,6 +23,14 @@ final class AppModel: ObservableObject {
     @Published var photoQuality: PhotoQuality {
         didSet { UserDefaults.standard.set(photoQuality.rawValue, forKey: "photoQuality"); glasses.photoQuality = photoQuality }
     }
+    enum ImageMode: String, CaseIterable, Identifiable {
+        case full, crop
+        var id: String { rawValue }
+        var title: String { self == .full ? "Full photo" : "Text crop + frame" }
+    }
+    @Published var imageMode: ImageMode {
+        didSet { UserDefaults.standard.set(imageMode.rawValue, forKey: "imageMode") }
+    }
     /// Empty = speak the answer as soon as it arrives; otherwise chime and wait for a touchpad tap.
     @Published var autoPlay: Bool {
         didSet { UserDefaults.standard.set(autoPlay, forKey: "autoPlay") }
@@ -58,6 +66,7 @@ final class AppModel: ObservableObject {
         photoResolution = PhotoResolution(rawValue: d.string(forKey: "photoResolution") ?? "") ?? .full
         photoQuality = PhotoQuality(rawValue: d.string(forKey: "photoQuality") ?? "") ?? .medium
         autoPlay = d.object(forKey: "autoPlay") as? Bool ?? false
+        imageMode = ImageMode(rawValue: d.string(forKey: "imageMode") ?? "") ?? .full
         debugURL = d.string(forKey: "debugURL") ?? ""
         glasses.photoResolution = photoResolution
         glasses.photoQuality = photoQuality
@@ -110,11 +119,16 @@ final class AppModel: ObservableObject {
         }
         let rawDims = "\(Int(upright.size.width))x\(Int(upright.size.height))"
         // Full frame for context (pointer, which question), zoomed text block for reading.
-        let full = Tutor.jpeg(upright, maxSide: 1600, quality: 0.8) ?? raw
+        let full = Tutor.jpeg(upright, maxSide: imageMode == .full ? 4096 : 1600, quality: 0.8) ?? raw
         var images = [full]
         var info = "raw \(raw.count / 1024) KB \(rawDims) → full \(full.count / 1024) KB"
-        let match = await Task.detached(priority: .userInitiated) { TextRegion.find(in: upright) }.value
-        if let match, let zoom = Tutor.jpeg(match.crop, minSide: 1400, maxSide: 2000) {
+        let match = imageMode == .crop
+            ? await Task.detached(priority: .userInitiated) { TextRegion.find(in: upright) }.value
+            : nil
+        if imageMode == .full {
+            lastPhoto = upright
+            info += "; sent as one full photo"
+        } else if let match, let zoom = Tutor.jpeg(match.crop, minSide: 1400, maxSide: 2000) {
             images.insert(zoom, at: 0)
             lastPhoto = match.crop
             DebugSink.photo("zoom", zoom)
