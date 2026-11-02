@@ -130,9 +130,9 @@ enum Tutor {
     }
 
     private static func askOpenAI(images: [Data], prompt: String, model: String, apiKey: String) async throws -> String {
-        var content: [[String: Any]] = [["type": "text", "text": prompt]]
+        var parts: [[String: Any]] = [["type": "text", "text": prompt]]
         for image in images {
-            content.append(["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + image.base64EncodedString(), "detail": "high"]])
+            parts.append(["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + image.base64EncodedString(), "detail": "high"]])
         }
         var body: [String: Any] = [
             "model": model,
@@ -141,7 +141,7 @@ enum Tutor {
             "max_completion_tokens": 4000,
             "messages": [
                 ["role": "system", "content": system],
-                ["role": "user", "content": content],
+                ["role": "user", "content": parts],
             ],
         ]
         let lower = model.lowercased()
