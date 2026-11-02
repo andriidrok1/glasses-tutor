@@ -51,8 +51,8 @@ struct ContentView: View {
                         .textSelection(.enabled)
                 }
 
-                Section("Log") {
-                    ForEach(Array(model.glasses.lines.suffix(40).enumerated()), id: \.offset) { _, line in
+                Section("Log (newest first)") {
+                    ForEach(Array(model.glasses.lines.suffix(40).reversed().enumerated()), id: \.offset) { _, line in
                         Text(line).font(.system(.caption, design: .monospaced))
                     }
                 }
