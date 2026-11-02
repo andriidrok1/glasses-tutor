@@ -25,14 +25,22 @@ enum Tutor {
         switch mode {
         case .check:
             return """
-            The photo shows a math problem and the student's handwritten answer. \
-            Reply in at most two short sentences. Start with the single word CORRECT or INCORRECT, \
-            then one sentence saying why. If no student answer is visible, instead give the final answer in one sentence.
+            The photo shows a math problem, on paper or on a screen. \
+            If a student's handwritten or selected answer is visible: reply in at most two short sentences, \
+            starting with the single word CORRECT or INCORRECT, then one sentence why. \
+            If no student answer is visible: give the answer. For a multiple-choice question say the letter first, \
+            then one sentence why. For an open question give only the final answer in one sentence. \
+            If several questions are visible, answer the first one fully, then give only the answers for the rest, \
+            each prefixed with its number.
             """
         case .solve:
             return """
-            The photo shows a math problem. Solve it in at most four short numbered steps, \
-            then state the final answer. Stay under 80 words.
+            The photo shows a math problem, on paper or on a screen. \
+            For a multiple-choice question: say the letter of the correct option, then explain why in one or two sentences, \
+            and name the option that students most often pick by mistake. \
+            For an open question: solve it in at most four short numbered steps, then state the final answer. \
+            If several questions are visible, do this for the first one, then give only the answers for the rest, \
+            each prefixed with its number. Stay under 120 words.
             """
         }
     }
@@ -59,7 +67,7 @@ enum Tutor {
     private static func askOpenAI(image: Data, mode: TutorMode, model: String, apiKey: String) async throws -> String {
         let body: [String: Any] = [
             "model": model,
-            "max_completion_tokens": 400,
+            "max_completion_tokens": 600,
             "messages": [
                 ["role": "system", "content": system],
                 ["role": "user", "content": [
@@ -85,7 +93,7 @@ enum Tutor {
     private static func askAnthropic(image: Data, mode: TutorMode, model: String, apiKey: String) async throws -> String {
         let body: [String: Any] = [
             "model": model,
-            "max_tokens": 400,
+            "max_tokens": 600,
             "system": system,
             "messages": [
                 ["role": "user", "content": [
