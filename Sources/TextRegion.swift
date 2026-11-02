@@ -8,6 +8,7 @@ import Vision
 /// needs the problem, and small print survives much better when it is not downscaled
 /// together with the rest of the frame.
 enum TextRegion {
+    private static let ciContext = CIContext()
     struct Match {
         let crop: UIImage
         let rect: CGRect      // pixel rect inside the upright source image
@@ -44,7 +45,7 @@ enum TextRegion {
         filter.setValue(point(obs.bottomLeft), forKey: "inputBottomLeft")
         filter.setValue(point(obs.bottomRight), forKey: "inputBottomRight")
         guard let out = filter.outputImage, out.extent.width > 200, out.extent.height > 200,
-              let flat = CIContext().createCGImage(out, from: out.extent) else { return nil }
+              let flat = ciContext.createCGImage(out, from: out.extent) else { return nil }
         let rect = CGRect(x: box.minX * w, y: (1 - box.maxY) * h, width: box.width * w, height: box.height * h).integral
         return Match(crop: UIImage(cgImage: flat), rect: rect, lines: 0, kind: "document \(Int(obs.confidence * 100))%")
     }

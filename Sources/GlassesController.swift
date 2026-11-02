@@ -42,8 +42,13 @@ final class GlassesController: ObservableObject {
     private var session: DeviceSession?
     private var camera: Camera?
     private var inputs: Inputs?
+    /// App-lifetime listeners (registration, device state).
     private let tokens = ListenerTokenBag()
     private var tasks: [Task<Void, Never>] = []
+    /// Session-scoped listeners and tasks; cleared on teardown so a reconnect does not pile up.
+    private var sessionTokens = ListenerTokenBag()
+    private var sessionTasks: [Task<Void, Never>] = []
+    private var lastDoublePress: Date?
     private var photoStartRequested = false
     private var streamReleased = false
     private var watchedDevices: Set<UUID> = []
@@ -157,7 +162,7 @@ final class GlassesController: ObservableObject {
         do {
             let s = try wearables.createSession(deviceSelector: SpecificDeviceSelector(device: id))
             session = s
-            tasks.append(Task { [weak self] in
+            sessionTasks.append(Task { [weak self] in
                 for await state in s.stateStream() {
                     await MainActor.run {
                         guard let self else { return }
@@ -171,7 +176,7 @@ final class GlassesController: ObservableObject {
                     }
                 }
             })
-            tasks.append(Task { [weak self] in
+            sessionTasks.append(Task { [weak self] in
                 for await error in s.errorStream() {
                     await MainActor.run { self?.log("session error: \(error.description)") }
                 }
@@ -192,6 +197,10 @@ final class GlassesController: ObservableObject {
     private func teardown() {
         camera?.stop()
         session?.stop()
+        sessionTokens.clear()
+        sessionTokens = ListenerTokenBag()
+        for task in sessionTasks { task.cancel() }
+        sessionTasks.removeAll()
         camera = nil
         inputs = nil
         session = nil
@@ -233,7 +242,7 @@ final class GlassesController: ObservableObject {
                     break
                 }
             }
-        }.store(in: tokens)
+        }.store(in: sessionTokens)
 
         photo.photoDataPublisher.listen { [weak self] data in
             Task { @MainActor in
@@ -243,7 +252,7 @@ final class GlassesController: ObservableObject {
                 self.log("photo arrived: \(data.imageData.count) bytes\(took)")
                 self.onPhoto?(data.imageData)
             }
-        }.store(in: tokens)
+        }.store(in: sessionTokens)
 
         photo.transferProgressPublisher.listen { [weak self] progress in
             Task { @MainActor in
@@ -251,18 +260,18 @@ final class GlassesController: ObservableObject {
                 let pct = Int(progress.fraction * 100)
                 if pct == 0 || pct == 50 { self.log("photo transfer: \(progress.bytesReceived / 1024)/\(progress.totalBytes / 1024) KB") }
             }
-        }.store(in: tokens)
+        }.store(in: sessionTokens)
 
         photo.errorPublisher.listen { [weak self] error in
             Task { @MainActor in
                 self?.photoInFlight = false
                 self?.log("photo error: \(error)")
             }
-        }.store(in: tokens)
+        }.store(in: sessionTokens)
 
         cam.statePublisher.listen { [weak self] state in
             Task { @MainActor in self?.log("camera: \(state)") }
-        }.store(in: tokens)
+        }.store(in: sessionTokens)
 
         cam.stream.statePublisher.listen { [weak self] state in
             Task { @MainActor in
@@ -277,7 +286,7 @@ final class GlassesController: ObservableObject {
                     break
                 }
             }
-        }.store(in: tokens)
+        }.store(in: sessionTokens)
 
         cam.stream.start()
     }
@@ -308,7 +317,7 @@ final class GlassesController: ObservableObject {
             }
             inputs = attached
             buttonReady = true
-            tasks.append(Task { [weak self] in
+            sessionTasks.append(Task { [weak self] in
                 for await event in attached.events {
                     await MainActor.run { self?.handle(event) }
                 }
@@ -329,6 +338,7 @@ final class GlassesController: ObservableObject {
             guard source == .captureButton else { return }
             switch pressType {
             case .shortPress:
+                if let last = lastDoublePress, Date().timeIntervalSince(last) < 0.7 { return }
                 pendingCapture?.cancel()
                 pendingCapture = Task { @MainActor [weak self] in
                     try? await Task.sleep(nanoseconds: 600_000_000)
@@ -337,6 +347,7 @@ final class GlassesController: ObservableObject {
                     self.capture(mode: .check)
                 }
             case .doublePress:
+                lastDoublePress = Date()
                 pendingCapture?.cancel()
                 pendingCapture = nil
                 log("double press: play/pause")

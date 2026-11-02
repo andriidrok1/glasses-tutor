@@ -6,7 +6,7 @@ enum Tutor {
         case openai, anthropic
         var id: String { rawValue }
         var title: String { self == .openai ? "OpenAI" : "Anthropic" }
-        var defaultModel: String { self == .openai ? "gpt-5" : "claude-sonnet-5-5" }
+        var defaultModel: String { self == .openai ? "gpt-6-luna" : "claude-sonnet-5-5" }
     }
 
     enum Language: String, CaseIterable, Identifiable {
@@ -159,7 +159,7 @@ enum Tutor {
             "messages": messages,
         ]
         let lower = model.lowercased()
-        if lower.hasPrefix("gpt-5") || lower.hasPrefix("o1") || lower.hasPrefix("o3") || lower.hasPrefix("o4") {
+        if lower.hasPrefix("gpt-6") || lower.hasPrefix("gpt-5") || lower.hasPrefix("o1") || lower.hasPrefix("o3") || lower.hasPrefix("o4") {
             body["reasoning_effort"] = "medium"
         }
         var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
