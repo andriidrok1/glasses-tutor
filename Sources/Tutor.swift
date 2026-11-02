@@ -64,15 +64,15 @@ enum Tutor {
             Step 1: look for a pointer: a mouse cursor on a screen, a fingertip, a pen tip, or a highlight. \
             If a pointer is visible, the target is the single question it points at or is nearest to; ignore the others. \
             If there is no pointer, the targets are all fully visible questions. \
-            Step 2: transcribe each target question and every one of its answer options exactly as printed, one per line, \\
+            Step 2: transcribe each target question and every one of its answer options exactly as printed, one per line, \
             including matrix entries. This transcription is for verification. \
-            Step 3: verify by actually computing (determinant, pivots, row reduction), even if the question says \\
+            Step 3: verify by actually computing (determinant, pivots, row reduction), even if the question says \
             no calculation is needed. \
-            Step 4: for multiple choice, pick the option whose justification is a statement of the Invertible Matrix \\
-            Theorem or an equivalent, not a superficial property; the same option texts appear in a different order \\
+            Step 4: for multiple choice, pick the option whose justification is a statement of the Invertible Matrix \
+            Theorem or an equivalent, not a superficial property; the same option texts appear in a different order \
             under each question, so read each one. \
             Finish with one final line in exactly this form, always with the question number: ANSWER: 6 E. \
-            Several targets: ANSWER: 5 D, 6 E. If a student's handwritten answer is visible instead: \\
+            Several targets: ANSWER: 5 D, 6 E. If a student's handwritten answer is visible instead: \
             ANSWER: 6 CORRECT or ANSWER: 6 INCORRECT, followed by at most one short sentence. \
             Open question: ANSWER: 6 <final value>. Only the ANSWER line is read aloud, so put nothing after it.
             """
