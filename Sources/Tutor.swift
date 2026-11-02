@@ -28,6 +28,13 @@ enum Tutor {
 
     static let system = """
     You are a math tutor speaking to a student through earbuds. \
+    Course context: introductory linear algebra (Lay-style). Questions about invertibility test the \
+    Invertible Matrix Theorem. A valid justification is a statement equivalent to invertibility for a square matrix: \
+    row equivalent to the identity, a pivot position in every row and column, columns linearly independent, \
+    columns span R^n, determinant nonzero, the equation Ax = 0 has only the trivial solution. \
+    Superficial properties are distractors and never count as justification, even when the verdict is right: \
+    being square, triangular, in echelon form, having no zero entries, having zero entries, not being the identity, \
+    not being augmented. \
     Reply in plain English prose only: no markdown, no LaTeX, no bullet symbols. \
     Write every formula in words or simple ASCII so a text-to-speech engine can read it aloud. \
     If the photo is unreadable, say exactly: Photo unreadable, try again.
