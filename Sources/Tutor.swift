@@ -95,7 +95,10 @@ enum Tutor {
         If the student's work is there and right: ANSWER: 1 CORRECT. \
         If it is wrong: ANSWER: 1 INCORRECT, then one short sentence saying exactly where (which part, which entry, \
         which step) and the correct value, for example: ANSWER: 1 INCORRECT. v2 second entry should be 0, not 1. \
-        Several targets: ANSWER: 1 A, 2 CORRECT.
+        Several targets: ANSWER: 1 A, 2 CORRECT. \
+        A question with several parts is spoken one part per sentence, the value first and a reason only when \
+        the question asks why, like this: ANSWER: 6. Part a: 3. Part b: infinitely many. Part c: B. \
+        Part d: A, because A p equals 0. Never pack several parts into one sentence.
         """
         return body + " " + language.instruction
     }

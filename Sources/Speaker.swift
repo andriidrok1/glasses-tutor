@@ -13,6 +13,9 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
     var log: ((String) -> Void)?
     /// Set by the didContinue callback; a resume that never reports back is restarted.
     private var continued = false
+    /// AVSpeechUtterance rate: 0.5 is the system default, lower is slower.
+    var rate: Float = 0.42
+    private var queued = 0
 
     override init() {
         super.init()
@@ -58,11 +61,22 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
             synthesizer = AVSpeechSynthesizer()
             synthesizer.delegate = self
         }
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: language)
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
-        log?("speak: \"\(text.prefix(40))\" via \(route)")
-        synthesizer.speak(utterance)
+        // One utterance per sentence, with a breath between them: time to write a part down.
+        let sentences = text
+            .replacingOccurrences(of: "; ", with: ". ")
+            .components(separatedBy: ". ")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let voice = AVSpeechSynthesisVoice(language: language)
+        queued = sentences.count
+        log?("speak: \"\(text.prefix(40))\" in \(sentences.count) pieces at rate \(rate) via \(route)")
+        for sentence in sentences {
+            let utterance = AVSpeechUtterance(string: sentence)
+            utterance.voice = voice
+            utterance.rate = rate
+            utterance.postUtteranceDelay = sentences.count > 1 ? 0.9 : 0
+            synthesizer.speak(utterance)
+        }
     }
 
     /// Double press: answer waiting → play it, speaking → pause, paused → continue,
@@ -102,8 +116,10 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
 
     // MARK: AVSpeechSynthesizerDelegate
 
-    func speechSynthesizer(_ s: AVSpeechSynthesizer, didStart u: AVSpeechUtterance) { log?("speech started") }
-    func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) { log?("speech finished") }
+    func speechSynthesizer(_ s: AVSpeechSynthesizer, didStart u: AVSpeechUtterance) {
+        if queued > 0 { log?("speech started"); queued = 0 }
+    }
+    func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) { if !s.isSpeaking { log?("speech finished") } }
     func speechSynthesizer(_ s: AVSpeechSynthesizer, didCancel u: AVSpeechUtterance) { log?("speech cancelled") }
     func speechSynthesizer(_ s: AVSpeechSynthesizer, didPause u: AVSpeechUtterance) { log?("speech paused") }
     func speechSynthesizer(_ s: AVSpeechSynthesizer, didContinue u: AVSpeechUtterance) { continued = true; log?("speech continued") }

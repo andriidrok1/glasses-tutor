@@ -35,6 +35,9 @@ final class AppModel: ObservableObject {
     @Published var autoPlay: Bool {
         didSet { UserDefaults.standard.set(autoPlay, forKey: "autoPlay") }
     }
+    @Published var speechRate: Double {
+        didSet { UserDefaults.standard.set(speechRate, forKey: "speechRate"); speaker.rate = Float(speechRate) }
+    }
     @Published var debugURL: String {
         didSet { UserDefaults.standard.set(debugURL, forKey: "debugURL"); DebugSink.url = URL(string: debugURL) }
     }
@@ -68,6 +71,8 @@ final class AppModel: ObservableObject {
         autoPlay = d.object(forKey: "autoPlay") as? Bool ?? false
         imageMode = ImageMode(rawValue: d.string(forKey: "imageMode") ?? "") ?? .crop
         debugURL = d.string(forKey: "debugURL") ?? ""
+        speechRate = d.object(forKey: "speechRate") as? Double ?? 0.42
+        speaker.rate = Float(speechRate)
         glasses.photoResolution = photoResolution
         glasses.photoQuality = photoQuality
         DebugSink.url = URL(string: debugURL)

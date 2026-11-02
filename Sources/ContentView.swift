@@ -40,6 +40,11 @@ struct ContentView: View {
                     Picker("Image sent", selection: $model.imageMode) {
                         ForEach(AppModel.ImageMode.allCases) { Text($0.title).tag($0) }
                     }
+                    HStack {
+                        Text("Speech rate")
+                        Slider(value: $model.speechRate, in: 0.3...0.55)
+                        Text(String(format: "%.2f", model.speechRate)).font(.caption).monospacedDigit()
+                    }
                     Toggle("Speak answer immediately (off = chime, tap to play)", isOn: $model.autoPlay)
                     TextField("Debug server URL (empty = off)", text: $model.debugURL)
                         .textInputAutocapitalization(.never)
