@@ -174,7 +174,7 @@ enum Tutor {
 
     private static func send(_ request: URLRequest) async throws -> [String: Any] {
         var request = request
-        request.timeoutInterval = 60
+        request.timeoutInterval = 180
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
