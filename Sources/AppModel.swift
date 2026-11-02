@@ -31,7 +31,7 @@ final class AppModel: ObservableObject {
         provider = Tutor.Provider(rawValue: d.string(forKey: "provider") ?? "") ?? .openai
         model = d.string(forKey: "model") ?? ""
         apiKey = d.string(forKey: "apiKey") ?? ""
-        language = Tutor.Language(rawValue: d.string(forKey: "language") ?? "") ?? .english
+        language = Tutor.Language(rawValue: d.string(forKey: "language") ?? "") ?? .russian
 
         // GlassesController is a nested ObservableObject; SwiftUI only watches this one.
         glasses.objectWillChange
