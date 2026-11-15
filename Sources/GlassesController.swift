@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import MWDATCore
 import MWDATCamera
 import MWDATInputs
@@ -54,6 +55,8 @@ final class GlassesController: ObservableObject {
     private var watchedDevices: Set<UUID> = []
     /// Identifier of the glasses that are currently linked and compatible.
     private var readyDevice: DeviceIdentifier?
+    /// Last worn state; Inputs stop delivering events after the glasses are taken off and put on again.
+    private var lastDon: DonState = .unknown
 
     func log(_ s: String) {
         let stamp = Self.clock.string(from: Date())
@@ -71,7 +74,23 @@ final class GlassesController: ObservableObject {
 
     // MARK: - Registration & permissions
 
+    /// iOS wakes the app in the background when the glasses connect (external-accessory and
+    /// Bluetooth background modes). Only take the glasses when the app is actually on screen;
+    /// a session that is already running keeps going in the background.
+    private var isForeground: Bool {
+        UIApplication.shared.applicationState != .background
+    }
+
     func observeRegistration() {
+        tasks.append(Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: UIApplication.didBecomeActiveNotification) {
+                await MainActor.run {
+                    guard let self, self.session == nil, self.readyDevice != nil else { return }
+                    self.log("app opened, glasses are here, starting session")
+                    self.connect()
+                }
+            }
+        })
         tasks.append(Task { [weak self] in
             for await state in Wearables.shared.registrationStateStream() {
                 await MainActor.run { self?.registration = String(describing: state) }
@@ -108,11 +127,23 @@ final class GlassesController: ObservableObject {
                 let line = self.describe(device, state)
                 self.deviceInfo = line
                 self.log("device: \(line)")
+                let wasOff = self.lastDon == .doffed
+                self.lastDon = state.donState
+                if wasOff, state.donState == .donned, self.session != nil {
+                    // Known DAT issue: the button stays silent after a take-off / put-on.
+                    self.log("glasses put back on, restarting the session so the button works again")
+                    self.reconnect()
+                    return
+                }
                 if state.linkState == .connected, state.compatibility == .compatible {
                     self.readyDevice = device.identifier
                     if self.session == nil {
-                        self.log("glasses connected and compatible, starting session")
-                        self.connect()
+                        if self.isForeground {
+                            self.log("glasses connected and compatible, starting session")
+                            self.connect()
+                        } else {
+                            self.log("glasses connected while the app is in the background, waiting until it is opened")
+                        }
                     }
                 } else if state.linkState == .disconnected {
                     self.readyDevice = nil
@@ -149,8 +180,14 @@ final class GlassesController: ObservableObject {
 
     // MARK: - Session
 
-    func connect() {
+    /// `force`: the user asked (Reconnect button) or a running session is being restarted;
+    /// only automatic starts wait for the app to be on screen.
+    func connect(force: Bool = false) {
         guard session == nil else { return }
+        guard force || isForeground else {
+            log("app is in the background, session will start when it is opened")
+            return
+        }
         let wearables = Wearables.shared
         // AutoDeviceSelector picks a device asynchronously; used right after creation it has
         // nothing selected and createSession throws noEligibleDevice. Meta's samples name the
@@ -191,7 +228,7 @@ final class GlassesController: ObservableObject {
 
     func reconnect() {
         teardown()
-        connect()
+        connect(force: true)
     }
 
     private func teardown() {

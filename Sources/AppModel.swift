@@ -12,7 +12,7 @@ final class AppModel: ObservableObject {
         didSet { UserDefaults.standard.set(model, forKey: "model") }
     }
     @Published var apiKey: String {
-        didSet { UserDefaults.standard.set(apiKey, forKey: "apiKey") }
+        didSet { Keychain.set(apiKey, for: "apiKey") }
     }
     @Published var language: Tutor.Language {
         didSet { UserDefaults.standard.set(language.rawValue, forKey: "language") }
@@ -49,6 +49,8 @@ final class AppModel: ObservableObject {
     let glasses = GlassesController()
     let speaker = Speaker()
     private var pendingMode: TutorMode = .check
+    /// Bumped per photo. A slow answer for an older photo must not overwrite or talk over a newer one.
+    private var requestID = 0
     /// Earlier captures replayed with the next request (a problem split over two pages).
     @Published private(set) var history: [Tutor.Turn] = []
     private let memoryLimit = 3
@@ -64,8 +66,13 @@ final class AppModel: ObservableObject {
         let d = UserDefaults.standard
         provider = Tutor.Provider(rawValue: d.string(forKey: "provider") ?? "") ?? .openai
         model = d.string(forKey: "model") ?? ""
-        apiKey = d.string(forKey: "apiKey") ?? ""
-        language = Tutor.Language(rawValue: d.string(forKey: "language") ?? "") ?? .english
+        // The key used to live in UserDefaults; move it to the Keychain once.
+        if let old = d.string(forKey: "apiKey") {
+            if !old.isEmpty { Keychain.set(old, for: "apiKey") }
+            d.removeObject(forKey: "apiKey")
+        }
+        apiKey = Keychain.get("apiKey") ?? ""
+        language = Tutor.Language(rawValue: d.string(forKey: "language") ?? "") ?? Tutor.Language.deviceDefault
         photoResolution = PhotoResolution(rawValue: d.string(forKey: "photoResolution") ?? "") ?? .full
         photoQuality = PhotoQuality(rawValue: d.string(forKey: "photoQuality") ?? "") ?? .medium
         autoPlay = d.object(forKey: "autoPlay") as? Bool ?? false
@@ -113,11 +120,13 @@ final class AppModel: ObservableObject {
     func answer(_ raw: Data) async {
         guard !apiKey.isEmpty else {
             lastAnswer = "No API key set."
-            speaker.speak("No API key.")
+            speaker.speak(language == .russian ? "Не задан ключ API." : "No API key.", language: language.voice)
             return
         }
+        requestID += 1
+        let myID = requestID
         busy = true
-        defer { busy = false }
+        defer { if myID == requestID { busy = false } }
         guard let upright = Tutor.upright(raw) else {
             lastAnswer = "Photo could not be decoded (\(raw.count) bytes)."
             glasses.log(lastAnswer)
@@ -157,6 +166,10 @@ final class AppModel: ObservableObject {
                 images: images, history: history, mode: pendingMode, language: language,
                 provider: provider, model: effectiveModel, apiKey: apiKey
             )
+            guard myID == requestID else {
+                glasses.log("answer for an older photo dropped, a newer one is in progress")
+                return
+            }
             // Keep only the zoomed crop of this capture for later turns: it carries the text.
             history.append(Tutor.Turn(images: [images[0]], reply: text, date: Date()))
             if history.count > memoryLimit { history.removeFirst(history.count - memoryLimit) }
@@ -171,6 +184,7 @@ final class AppModel: ObservableObject {
                 speaker.ready(spoken, language: language.voice)
             }
         } catch {
+            guard myID == requestID else { return }
             lastAnswer = "Error: \(error.localizedDescription)"
             glasses.log("api error: \(error)")
             speaker.speak(language == .russian ? "Ошибка запроса." : "Request failed.", language: language.voice)

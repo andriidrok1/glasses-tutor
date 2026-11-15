@@ -14,6 +14,11 @@ enum Tutor {
         var id: String { rawValue }
         var title: String { self == .english ? "English" : "Русский" }
         var voice: String { self == .english ? "en-US" : "ru-RU" }
+        /// Russian for phones set to Russian or Ukrainian, English otherwise.
+        static var deviceDefault: Language {
+            let first = Locale.preferredLanguages.first?.lowercased() ?? ""
+            return first.hasPrefix("ru") || first.hasPrefix("uk") ? .russian : .english
+        }
         var instruction: String {
             self == .english
                 ? "Reply in English."
@@ -42,7 +47,7 @@ enum Tutor {
     Superficial properties are distractors and never count as justification, even when the verdict is right: \
     being square, triangular, in echelon form, having no zero entries, having zero entries, not being the identity, \
     not being augmented. \
-    Reply in plain English prose only: no markdown, no LaTeX, no bullet symbols. \
+    Reply in plain prose only, in the language the instructions below ask for: no markdown, no LaTeX, no bullet symbols. \
     Write every formula in words or simple ASCII so a text-to-speech engine can read it aloud. \
     Spoken format for values: a vector as "v1 = 1, 2, 0" (entries in order, separated by commas); \
     a matrix row by row as "matrix 2 by 3, row 1: 1 2 0, row 2: 2 4 1"; a fraction as "3 over 4"; \
