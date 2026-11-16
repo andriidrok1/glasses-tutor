@@ -41,6 +41,10 @@ final class AppModel: ObservableObject {
     @Published var debugURL: String {
         didSet { UserDefaults.standard.set(debugURL, forKey: "debugURL"); DebugSink.url = URL(string: debugURL) }
     }
+    /// The user agreed that photos go to the chosen AI provider with their own key.
+    @Published var consent: Bool {
+        didSet { UserDefaults.standard.set(consent, forKey: "consent") }
+    }
     @Published var lastAnswer = ""
     @Published var busy = false
     @Published var lastPhoto: UIImage?
@@ -76,6 +80,7 @@ final class AppModel: ObservableObject {
         photoResolution = PhotoResolution(rawValue: d.string(forKey: "photoResolution") ?? "") ?? .full
         photoQuality = PhotoQuality(rawValue: d.string(forKey: "photoQuality") ?? "") ?? .medium
         autoPlay = d.object(forKey: "autoPlay") as? Bool ?? false
+        consent = d.bool(forKey: "consent")
         imageMode = ImageMode(rawValue: d.string(forKey: "imageMode") ?? "") ?? .crop
         debugURL = d.string(forKey: "debugURL") ?? ""
         speechRate = d.object(forKey: "speechRate") as? Double ?? 0.42
@@ -121,6 +126,11 @@ final class AppModel: ObservableObject {
         guard !apiKey.isEmpty else {
             lastAnswer = "No API key set."
             speaker.speak(language == .russian ? "Не задан ключ API." : "No API key.", language: language.voice)
+            return
+        }
+        guard consent else {
+            lastAnswer = "Photo not sent: allow sending photos in the app first."
+            speaker.speak(language == .russian ? "Сначала разрешите отправку фото в приложении." : "Allow sending photos in the app first.", language: language.voice)
             return
         }
         requestID += 1

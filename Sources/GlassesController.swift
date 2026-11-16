@@ -19,6 +19,9 @@ enum TutorMode: String {
 @MainActor
 final class GlassesController: ObservableObject {
     @Published var registration = "unknown"
+    @Published var registrationState: RegistrationState = .unavailable
+    /// nil until Meta AI has been asked.
+    @Published var cameraAllowed: Bool?
     @Published var sessionState = "idle"
     @Published var shutterReady = false
     /// Photo settings; `.large` gave 1920x1080, `.full` should be the sensor's native size.
@@ -93,7 +96,11 @@ final class GlassesController: ObservableObject {
         })
         tasks.append(Task { [weak self] in
             for await state in Wearables.shared.registrationStateStream() {
-                await MainActor.run { self?.registration = String(describing: state) }
+                await MainActor.run {
+                    self?.registration = String(describing: state)
+                    self?.registrationState = state
+                    if state == .registered { Task { await self?.refreshCameraPermission() } }
+                }
             }
         })
         tasks.append(Task { [weak self] in
@@ -169,9 +176,16 @@ final class GlassesController: ObservableObject {
         }
     }
 
+    func refreshCameraPermission() async {
+        if let status = try? await Wearables.shared.checkPermissionStatus(.camera) {
+            cameraAllowed = status == .granted
+        }
+    }
+
     func requestCameraPermission() async {
         do {
             let status = try await Wearables.shared.requestPermission(.camera)
+            cameraAllowed = status == .granted
             log("camera permission: \(String(describing: status))")
         } catch {
             log("camera permission: \(error)")
