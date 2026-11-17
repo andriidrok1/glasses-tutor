@@ -32,6 +32,7 @@ targets:
         GENERATE_INFOPLIST_FILE: "NO"
         CODE_SIGN_ENTITLEMENTS: Config/GlassesTutor.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
     dependencies:
       - package: MetaWearablesDAT
         product: MWDATCore
