@@ -1,89 +1,151 @@
-# Glasses Tutor
+<div align="center">
 
-iPhone-приложение для Ray-Ban Meta (2023, gen 1): нажал кнопку на дужке, очки сделали снимок задачи, модель проверила ответ или решила, голос пришёл в дужки. Ни одного слова и ни одного касания телефона.
+<img src="Resources/Assets.xcassets/AppIcon.appiconset/icon-1024.png" width="112" alt="" />
 
-Короткое нажатие = «проверь мой ответ». Двойное = «реши».
+# Cheating Tool
 
-Собирается без мака и без Apple Developer Program: GitHub Actions делает неподписанный IPA, подписываешь его бесплатным Apple ID со своего Linux.
+**Press the button on your Ray-Ban Meta. The glasses photograph the problem. The answer plays in your ears.**
 
-## Что внутри
+Your phone stays in your pocket.
 
-- `Sources/GlassesController.swift` сессия с очками, камера, полноразмерный снимок (`camera.photo`, идёт по Bluetooth, Wi-Fi не нужен), кнопка через `MWDATInputs`.
-- `Sources/Tutor.swift` запрос к OpenAI или Anthropic с картинкой, два промпта.
-- `Sources/Speaker.swift` озвучка через `AVSpeechSynthesizer`, звук уходит в текущий Bluetooth-выход, то есть в очки.
-- `Sources/ContentView.swift` экран статуса: регистрация, сессия, ключ API, тестовые кнопки, лог.
-- `project.yml` описание проекта для XcodeGen. `.xcodeproj` генерируется, в репозитории его нет.
-- `.github/workflows/build.yml` сборка IPA на `macos-26`.
+[![TestFlight](https://img.shields.io/badge/TestFlight-join_the_beta-0D96F6?logo=apple&logoColor=white)](https://testflight.apple.com/join/x6D22vsz)
+![iOS 17.2+](https://img.shields.io/badge/iOS-17.2%2B-black?logo=apple)
+![Ray-Ban Meta](https://img.shields.io/badge/glasses-Ray--Ban%20Meta%20%C2%B7%20Oakley%20Meta-1a1a1a)
+![Swift](https://img.shields.io/badge/Swift-SwiftUI-F05138?logo=swift&logoColor=white)
 
-SDK: `meta-wearables-dat-ios` 1.0.1, iOS 17.2+, Xcode 26.4+.
+[Install](#install) · [How to use it](#how-to-use-it) · [Troubleshooting](#troubleshooting) · [Privacy](#privacy) · [Guide on the web](https://www.andriidrok.com/glasses)
 
-## Один раз: аккаунты и очки
+</div>
 
-1. Зарегистрироваться на https://wearables.developer.meta.com тем же Meta-аккаунтом, к которому привязаны очки.
-2. Обновить Meta AI app и прошивку очков.
-3. Meta AI app → Settings → Your glasses → Developer Mode → включить.
-4. На iPhone: Settings → Privacy & Security → Developer Mode → включить (перезагрузка).
+> [!NOTE]
+> On your phone and in TestFlight the app is called **Glasses Tutor**. That’s on purpose: if anyone looks at your home screen, it’s just a tutor app.
 
-## Сборка
+## How it works
 
-Публичный репозиторий github.com/andriidrok1/glasses-tutor. Каждый push в `main` или кнопка Run workflow собирает два неподписанных IPA и кладёт их в артефакт `GlassesTutor-ipa` и в релиз `latest` (https://github.com/andriidrok1/glasses-tutor/releases):
-
-- `GlassesTutor-devmode.ipa`: MetaAppID пустой, SDK пропускает attestation. Работает с Developer Mode на очках. Ставить первым.
-- `GlassesTutor-registered.ipa`: MetaAppID и ClientToken из проекта в Wearables Developer Center, берутся из секретов репозитория `META_APP_ID`, `CLIENT_TOKEN`, `APPLE_TEAM_ID`. Нужен, если Inputs (кнопка) отказывает в devmode. Для attestation нужен ещё Apple Team ID, у бесплатного Apple ID он есть (personal team), его покажет `plumesign account certificates` после входа. Пока секрет `APPLE_TEAM_ID` пуст.
-
-## Установка на iPhone с Linux
-
-Бесплатный Apple ID подписывает приложение на свой телефон, профиль живёт 7 дней. Инструмент: Impactor (https://github.com/claration/impactor), у него есть Linux AppImage и консольный `plumesign`. На этой машине оба лежат в `~/Applications/impactor/`. `usbmuxd` нужен и уже стоит.
-
-Консольный путь:
-
-```
-cd ~/Applications/impactor
-./plumesign-linux-x86_64 account login -u ВАШ_APPLE_ID     # пароль и код 2FA спросит сам, один раз
-~/WebstormProjects/glasses-tutor/scripts/install.sh            # devmode: качает latest IPA, подписывает, ставит
-~/WebstormProjects/glasses-tutor/scripts/install.sh registered # вариант с ID из Developer Center
+```mermaid
+flowchart LR
+    A["👓 Press once"] --> B["📸 Glasses take a photo"]
+    B -- Bluetooth --> C["📱 iPhone app"]
+    C -- "your API key" --> D["🧠 OpenAI / Anthropic"]
+    D --> C
+    C -- "🔊 voice" --> E["👂 Answer in the glasses"]
 ```
 
-Телефон при этом подключён по кабелю, разблокирован, на вопрос «Доверять компьютеру» ответить «Доверять». Скрипт спросит UDID, если устройств несколько.
+The app talks to the glasses through Meta’s [Wearables Device Access Toolkit](https://github.com/facebook/meta-wearables-dat-ios). There is no server in between: the photo goes from your phone straight to the AI provider you pick, with your own key.
 
-GUI-путь: запустить `Impactor-linux-x86_64.appimage`, войти Apple ID, перетащить `GlassesTutor.ipa`, выбрать устройство, Install.
+## What you need
 
-После установки на iPhone: Settings → General → VPN & Device Management → доверять своему Apple ID. Через 7 дней снова `scripts/install.sh`, данные приложения (ключ API) при переустановке сохраняются.
+- An iPhone on iOS 17.2 or newer
+- Ray-Ban Meta or Oakley Meta glasses, already paired in the Meta AI app
+- Your own OpenAI or Anthropic API key. A photo costs 1 to 3 cents, so $5 of credit goes a long way
+- About 10 minutes
 
-Лимиты бесплатного Apple ID: 3 приложения одновременно, 10 App ID в неделю. Entitlements у приложения только `keychain-access-groups`, бесплатному аккаунту это доступно.
+## Install
 
-## Первый запуск
+**1. Install the app with TestFlight.** The app is in beta, so it lives in TestFlight (Apple’s official app for betas) rather than the App Store. Open the link on your iPhone, get TestFlight when it asks, then tap **Accept** and **Install**. TestFlight installs new versions on its own.
 
-1. Открыть приложение. Нажать «1. Register in Meta AI»: откроется Meta AI, подтвердить, вернёт обратно.
-2. «2. Allow camera in Meta AI»: снова Meta AI, выбрать Allow always.
-3. Вставить API-ключ, выбрать провайдера. Модель можно оставить пустой (по умолчанию `gpt-6-luna` или `claude-sonnet-5-5`).
-4. «Reconnect session». В логе должно дойти до `photo: started` и `capture button attached`. Строки Shutter = ready и Capture button = listening.
-5. «Say test phrase»: голос должен прозвучать в очках, а не из телефона. Если из телефона, очки не подключены как гарнитура.
-6. Положить лист с задачей перед собой, короткое нажатие на дужке. Бип = снимок пошёл, через 5–10 секунд ответ.
+<p><a href="https://testflight.apple.com/join/x6D22vsz"><b>→ Open in TestFlight</b></a></p>
 
-## Рабочий режим
+**2. Turn on Developer Mode in Meta AI.** The glasses only let in apps from Meta’s store unless this is on. In the Meta AI app go to **Settings → App Info** and tap **App version** five times. A **Developer Mode** toggle appears: turn it on and confirm with **Enable**.
 
-Приложение само запрещает телефону гаснуть (`isIdleTimerDisabled`). Чтобы карман ничего не нажимал: Settings → Accessibility → Guided Access → включить, затем в приложении тройной клик боковой кнопки, Options → Touch выключить, Start. Выход тем же тройным кликом.
+**3. Connect the app to your glasses.** Open Glasses Tutor. The **Setup** card at the top lists the steps and ticks each one off. Tap **Open Meta AI to connect**, confirm in Meta AI, and it sends you back.
 
-Камера очков открыта только на время снимка, стрим с видео гасится сразу после старта затвора. Очки в таком режиме живут несколько часов.
+**4. Allow the glasses camera.** Tap **Open Meta AI, choose Allow always** and pick **Allow always** in Meta AI. Otherwise it asks every time.
 
-## Что проверено на живых очках (2026-11-01)
+**5. Paste your AI key.** For OpenAI:
 
-- Ray-Ban Meta gen 1, iOS 18.7.1, SDK 1.0.1, Developer Mode, `devmode`-сборка: регистрация, камера, кнопка захвата и полноразмерный снимок работают. Проект в Developer Center для кнопки НЕ понадобился.
-- Сессию надо создавать через `SpecificDeviceSelector(device:)` с идентификатором из `devices`. `AutoDeviceSelector`, созданный и сразу использованный, даёт `noEligibleDevice`.
-- Снимок `.large/.high` это ~250 КБ, идёт по Bluetooth 10–13 секунд. Текст с экрана ноутбука с полуметра читается.
-- gpt-5 и gpt-6 это модели с рассуждением: `max_completion_tokens` должен быть большим (стоит 20000), иначе ответ приходит пустым. Стоит `reasoning_effort: medium`.
-- `UIGraphicsImageRenderer` по умолчанию берёт масштаб экрана (3x), пережатая картинка выходила 4800×2700. Формат с `scale = 1`.
-- Ответ по умолчанию по-русски, переключатель в приложении.
+1. Sign in at [platform.openai.com](https://platform.openai.com/settings/organization/billing/overview) and add $5 under Billing
+2. Open [API keys](https://platform.openai.com/api-keys), tap **Create new secret key** and copy it (it starts with `sk-`)
+3. Paste it into the field in step 4 of the Setup card
 
-## Что может не завестись и что делать
+The key stays in your iPhone’s Keychain. Using Anthropic instead? Switch **Provider** and get a key at [console.anthropic.com](https://console.anthropic.com/settings/keys).
 
-- `inputs: ... permissionDenied`. Inputs помечен в SDK как experimental и может требовать включения capability в Wearables Developer Center. Тогда: в проекте Developer Center включить Inputs, положить `APPLE_TEAM_ID` в секреты, поставить `GlassesTutor-registered.ipa`.
-- Снимок не приходит, в логе `photo error`. Чаще всего стрим ещё держит сенсор. Проверить, что перед `capture` в логе было `stream put down`.
-- Очки параллельно делают свой снимок в галерею. Это надо проверить на живом железе, в доке не сказано.
-- `camera would not attach`. Не выдано разрешение камеры в Meta AI, пункт 2.
-- Голос в телефоне, не в очках. В iOS Settings → Bluetooth проверить, что очки подключены; в Meta AI app звук Meta AI должен работать.
+**6. Agree to sending photos.** Turn on **I agree**. Once every step has a tick, the Setup card goes away and you’re ready.
 
-## Ключ API
+## How to use it
 
-Хранится в UserDefaults на телефоне, в репозиторий не попадает. Для личного устройства этого достаточно.
+Everything happens with one button: the capture button on top of the right arm of your glasses. Open the app so it connects, then put the phone away.
+
+| Press | What it does |
+|---|---|
+| **Once** | Takes a photo of what you’re looking at and sends it to the AI |
+| **Twice** | Plays the answer. While it talks: pause. Paused: continue. Finished: repeat |
+
+### One round
+
+1. **Press once.** You hear a short click. The photo is on its way.
+2. **Wait a few seconds.** The glasses say *“Ready”* and your phone buzzes once. Nothing is read out yet, so nobody around hears it by surprise.
+3. **Press twice.** The answer plays in your ears.
+
+Want the answer read right away? Turn on **Speak answer immediately** in the **Answer** section.
+
+### What it tells you
+
+It reads the question, looks at what you wrote under it, and gives one short line.
+
+| On the page | You hear |
+|---|---|
+| Nothing written yet | *“1 A”* or *“3: x equals 4”* |
+| Your answer, and it’s right | *“1 correct”* |
+| Your answer, and it’s wrong | *“1 incorrect. v2 second entry should be 0, not 1”* |
+| A question with parts | *“Part a: 3. Part b: infinitely many. Part c: B”* |
+| A photo it can’t read | *“Photo unreadable, try again”* |
+
+It’s tuned for math (algebra, linear algebra, matrices, multiple choice). Other subjects work too, just less reliably.
+
+### Tips
+
+- **One question only:** point at it with a fingertip or pen tip, or hover the mouse cursor over it on a screen. It answers just that question, or just that part, like (b).
+- **A problem across two pages:** it remembers your last 3 photos for 20 minutes. Photograph the page with the matrix, then the page with the question. Starting a different assignment? Tap **Forget earlier photos**.
+- **A good photo:** face the page straight on, get close enough that the problem fills most of the view, hold still for a second after the click, avoid glare.
+- **Settings:** **Language** (English or Russian, follows your iPhone), **Speech rate**, and **Last photo / Last answer** to see what it saw and the full worked solution.
+- The light on the front of the glasses turns on while a photo is taken. Meta does that, and the app can’t turn it off.
+
+## Troubleshooting
+
+<details>
+<summary><b>Meta AI opens but the connection fails</b></summary>
+
+Check that Developer Mode is on, then update Meta AI and the glasses firmware.
+</details>
+
+<details>
+<summary><b>The button on the glasses does nothing</b></summary>
+
+Open the app and tap **Reconnect glasses**. Under **Status**, **Capture button** should say *listening*.
+</details>
+
+<details>
+<summary><b>A key error or 401 in the answer</b></summary>
+
+The key was cut off when you copied it, or your OpenAI account has no credit.
+</details>
+
+<details>
+<summary><b>Anything else</b></summary>
+
+[Open an issue](https://github.com/andriidrok1/glasses-tutor/issues) or DM me on Instagram.
+</details>
+
+## Privacy
+
+No server, no account, no analytics. Photos go from your phone directly to OpenAI or Anthropic under your own key, and only after you turn on **I agree**. The key lives in the iPhone Keychain, and the last 20 photos stay in the app’s folder on your phone. Full policy: [PRIVACY.md](PRIVACY.md).
+
+## Build from source
+
+SwiftUI app, project generated with [XcodeGen](https://github.com/yonaskolb/XcodeGen) from `project.yml`, Meta Wearables DAT 1.0.1.
+
+| File | What it does |
+|---|---|
+| `Sources/GlassesController.swift` | Session with the glasses, camera, full-size photo, capture button |
+| `Sources/Tutor.swift` | Request to OpenAI or Anthropic with the image, the prompts |
+| `Sources/Speaker.swift` | Speech through `AVSpeechSynthesizer`, routed to the glasses |
+| `Sources/AppModel.swift` | Glue: settings, photo memory, answer flow |
+| `Sources/ContentView.swift` | Setup card, status, settings, log |
+| `.github/workflows/` | Unsigned IPA on every push, signed TestFlight upload on demand |
+
+Building on Linux without a Mac, sideloading with a free Apple ID, and notes from testing on live glasses are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) (in Russian).
+
+<div align="center">
+<sub>Made by <a href="https://www.andriidrok.com">Andrii Drok</a> in San Francisco</sub>
+</div>
