@@ -2,7 +2,7 @@
 
 <img src="Resources/Assets.xcassets/AppIcon.appiconset/icon-1024.png" width="112" alt="" />
 
-# Cheating Tool
+# Glasses Tutor
 
 **Press the button on your Ray-Ban Meta. The glasses photograph the problem. The answer plays in your ears.**
 
@@ -16,9 +16,6 @@ Your phone stays in your pocket.
 [Install](#install) · [How to use it](#how-to-use-it) · [Troubleshooting](#troubleshooting) · [Privacy](#privacy) · [Guide on the web](https://www.andriidrok.com/glasses)
 
 </div>
-
-> [!NOTE]
-> On your phone and in TestFlight the app is called **Glasses Tutor**. That’s on purpose: if anyone looks at your home screen, it’s just a tutor app.
 
 ## How it works
 
